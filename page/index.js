@@ -1,6 +1,6 @@
 import * as hmUI from "@zos/ui";
 import { getLanguage } from "@zos/settings";
-import { onGesture, offGesture, GESTURE_RIGHT } from "@zos/interaction";
+import { onGesture, offGesture } from "@zos/interaction";
 import { setPageBrightTime, resetPageBrightTime } from "@zos/display";
 import { LocalStorage } from "@zos/storage";
 
@@ -225,18 +225,16 @@ Page({
 
   // ---------------------------------------------------------------- input ----
 
-  // Swiping right is how Zepp OS leaves an app. That is welcome on a menu and a
-  // disaster mid-puzzle, where a drag of the map towards the right edge would
-  // otherwise quit the game and lose the position - so during play the gesture is
-  // swallowed and the menu button is the way out.
-  onGesture(gesture) {
+  // Dragging the map is a long swipe, and Zepp OS reads long swipes as system
+  // gestures: right leaves the app, down and up open the system panels. Any of
+  // them lands mid-puzzle and takes the position with it, so while a game is on
+  // screen every gesture is swallowed and the menu button is the way out. The
+  // menus deliberately let them through, which is how you leave.
+  onGesture() {
     if (this.state.destroyed) {
       return false;
     }
-    if (this.state.screen === "playing" && gesture === GESTURE_RIGHT) {
-      return true;
-    }
-    return false;
+    return this.state.screen === "playing";
   },
 
   // The backdrop is created before anything else, so it sits under the whole
