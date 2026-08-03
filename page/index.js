@@ -125,10 +125,18 @@ const memory = {};
 // The raw stored value, or undefined when there is nothing stored. Kept separate
 // from readNumber because "never set" and "set to zero" mean different things to
 // the difficulty level.
+//
+// The in-memory copy is consulted whenever storage has nothing to say - not only
+// when there is no storage at all. A watch whose storage reads fine but refuses
+// to write would otherwise forget the record between two screens of the same
+// session, because the value would only ever have made it as far as `memory`.
 function readValue(storage, key) {
   if (storage) {
     try {
-      return storage.getItem(key);
+      const stored = storage.getItem(key);
+      if (stored !== null && stored !== undefined && stored !== "") {
+        return stored;
+      }
     } catch {
       // Fall through to the in-memory copy.
     }
