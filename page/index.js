@@ -271,8 +271,17 @@ Page({
     if (!moved.dragging) {
       return;
     }
-    panCamera(this.state.camera, this.state.panFrom, moved.dx, moved.dy, this.state.board.cell);
-    this.paintBoard();
+    // The map moves in whole cells, so most of the move events a drag produces
+    // land the window exactly where it already was. Repainting only when the
+    // window has actually moved keeps a drag from burning a hundred cell lookups
+    // per event for nothing.
+    const camera = this.state.camera;
+    const wasX = camera.x;
+    const wasY = camera.y;
+    panCamera(camera, this.state.panFrom, moved.dx, moved.dy, this.state.board.cell);
+    if (camera.x !== wasX || camera.y !== wasY) {
+      this.paintBoard();
+    }
   },
 
   // A tap steps the keeper towards the cell it landed on. Taps outside the board
