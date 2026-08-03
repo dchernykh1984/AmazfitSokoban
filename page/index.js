@@ -607,13 +607,18 @@ Page({
 
   // The counters in the cap above the board: crates home out of the total, and
   // how many moves that has taken.
+  // The widget is created once per game and then only ever re-lettered: a step
+  // changes the counters, and deleting and rebuilding a widget on every step is
+  // far more work than handing it a new string.
   paintHud() {
-    if (this.state.hud) {
-      hmUI.deleteWidget(this.state.hud);
-      this.state.hud = null;
-    }
     const game = this.state.game;
     if (game === null) {
+      return;
+    }
+
+    const text = boxesOnGoals(game) + "/" + game.goals.length + "   " + game.moves;
+    if (this.state.hud) {
+      this.state.hud.setProperty(hmUI.prop.MORE, { text });
       return;
     }
 
@@ -626,7 +631,6 @@ Page({
       board.size,
       SCREEN_PADDING
     );
-    const text = boxesOnGoals(game) + "/" + game.goals.length + "   " + game.moves;
     this.state.hud = this.createText(box, Math.round(height * 0.74), COLOR_TEXT, text);
   },
 
