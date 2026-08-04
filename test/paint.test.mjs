@@ -1,6 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { DOWN, LEFT, RIGHT, UP } from "../lib/directions.js";
-import { COLOR_BOX, COLOR_BOX_DONE, COLOR_GOAL, COLOR_KEEPER, paintCell } from "../lib/paint.js";
+import {
+  COLOR_BOX,
+  COLOR_BOX_DONE,
+  COLOR_GOAL,
+  COLOR_KEEPER,
+  paintArrow,
+  paintCell,
+  paintMenuIcon,
+  paintUndoIcon,
+} from "../lib/paint.js";
 import {
   CELL_KINDS,
   BOX,
@@ -147,6 +156,81 @@ describe("paintCell", () => {
           expect(command.radius, kind).toBeGreaterThan(0);
         }
       }
+    }
+  });
+});
+
+describe("the drawn controls", () => {
+  const BUTTON = { x: 40, y: 400, w: 60, h: 50 };
+  const WHITE = 0xffffff;
+
+  it("draws each arrow as one triangle", () => {
+    for (const direction of [UP, RIGHT, DOWN, LEFT]) {
+      const commands = paintArrow(direction, BUTTON, WHITE);
+      expect(commands.length, String(direction)).toBe(1);
+      expect(commands[0].op, String(direction)).toBe("poly");
+      expect(commands[0].points.length, String(direction)).toBe(6);
+      expect(commands[0].color, String(direction)).toBe(WHITE);
+    }
+  });
+
+  it("points each arrow the way it is named", () => {
+    const tip = (direction) => {
+      const points = paintArrow(direction, BUTTON, WHITE)[0].points;
+      return { x: points[0], y: points[1] };
+    };
+    const centre = { x: BUTTON.x + BUTTON.w / 2, y: BUTTON.y + BUTTON.h / 2 };
+
+    expect(tip(UP).y).toBeLessThan(centre.y);
+    expect(tip(DOWN).y).toBeGreaterThan(centre.y);
+    expect(tip(LEFT).x).toBeLessThan(centre.x);
+    expect(tip(RIGHT).x).toBeGreaterThan(centre.x);
+  });
+
+  it("keeps every control inside its button", () => {
+    const inside = (commands) => {
+      for (const command of commands) {
+        const xs =
+          command.op === "poly"
+            ? command.points.filter((_, i) => i % 2 === 0)
+            : [command.x1, command.x2];
+        const ys =
+          command.op === "poly"
+            ? command.points.filter((_, i) => i % 2 === 1)
+            : [command.y1, command.y2];
+        for (const x of xs) {
+          expect(x).toBeGreaterThanOrEqual(BUTTON.x);
+          expect(x).toBeLessThanOrEqual(BUTTON.x + BUTTON.w);
+        }
+        for (const y of ys) {
+          expect(y).toBeGreaterThanOrEqual(BUTTON.y);
+          expect(y).toBeLessThanOrEqual(BUTTON.y + BUTTON.h);
+        }
+      }
+    };
+
+    for (const direction of [UP, RIGHT, DOWN, LEFT]) {
+      inside(paintArrow(direction, BUTTON, WHITE));
+    }
+    inside(paintUndoIcon(BUTTON, WHITE));
+    inside(paintMenuIcon(BUTTON, WHITE));
+  });
+
+  it("draws undo as an arrow bending back", () => {
+    const commands = paintUndoIcon(BUTTON, WHITE);
+    expect(commands.length).toBeGreaterThanOrEqual(3);
+    for (const command of commands) {
+      expect(command.op).toBe("line");
+    }
+  });
+
+  it("draws the menu as three stacked bars", () => {
+    const commands = paintMenuIcon(BUTTON, WHITE);
+    expect(commands.length).toBe(3);
+    const heights = commands.map((command) => command.y1);
+    expect(new Set(heights).size).toBe(3);
+    for (const command of commands) {
+      expect(command.y1).toBe(command.y2);
     }
   });
 });
