@@ -75,12 +75,12 @@ lib/                     PURE, unit-tested logic (no Zepp OS imports)
   round-geometry.js      chord maths that keeps text and buttons off the bezel
   viewport.js            the camera: centring, following, panning, hit-testing
   touch.js               tap versus drag, and which way a tap steps
-  render.js              what stands on a cell, as a name the page can paint
+  render.js              what stands on a cell, and the colours it is drawn in
   scores.js              the persisted best, per difficulty
   i18n/                  keys.js (the contract), labels.js (11 tables), index.js
 page/index.js            the watch screen: drawing, touches, the screens
 page/index.r.layout.js   the layout module Zepp OS requires per page
-utils/config/            device.js (screen size), constants.js (colors, fractions)
+utils/config/            device.js (screen size), constants.js (chrome, layout fractions)
 assets/common.r/icon.png the app icon
 test/                    Vitest unit tests
   doubles/zos/           stand-ins for the firmware modules, so the page is testable
