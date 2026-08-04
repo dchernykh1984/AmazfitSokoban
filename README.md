@@ -83,6 +83,9 @@ page/index.r.layout.js   the layout module Zepp OS requires per page
 utils/config/            device.js (screen size), constants.js (colors, fractions)
 assets/common.r/icon.png the app icon
 test/                    Vitest unit tests
+  doubles/zos/           stand-ins for the firmware modules, so the page is testable
+  helpers/               ASCII level pictures and the fake watch the page runs on
+vitest.config.mjs        aliases @zos/* onto those doubles
 ```
 
 The split is deliberate: every rule and every measurement lives in `lib/`, where a
@@ -90,6 +93,12 @@ test can reach it without a watch, and `page/index.js` only turns that into widg
 and reacts to touches. The board is a fixed grid of widgets that the camera moves
 over, and a step or a drag recolours only the cells that changed, so panning keeps
 up with a finger instead of rebuilding a hundred widgets a frame.
+
+The screen is tested too, not just the rules. The `@zos/*` modules only exist
+inside a Zepp OS build, so `vitest.config.mjs` resolves them to doubles that record
+the widgets the page creates and let a test press, drag and lift a finger on them.
+The end-to-end case taps out a whole generated puzzle cell by cell - the same
+solution the generator proves - and checks the record that lands in storage.
 
 ### Before it runs on a watch
 
