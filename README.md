@@ -100,12 +100,14 @@ the widgets the page creates and let a test press, drag and lift a finger on the
 The end-to-end case taps out a whole generated puzzle cell by cell - the same
 solution the generator proves - and checks the record that lands in storage.
 
-### Before it runs on a watch
+### In the store
 
-`app.json` carries the placeholder **`"appId": 1000001`**. Register the app in the
-[Zepp developer console](https://console.zepp.com/) and put the real id there first:
-the dev preview is cloud-mediated, and an unregistered appId makes the watch install
-the app but silently refuse to launch its screen.
+The app is registered in the [Zepp developer console](https://console.zepp.com/) as
+**Box Pusher**, `appId` **1122456**, which is what `app.json` carries. The id has to
+be the registered one: the dev preview is cloud-mediated, and an unregistered appId
+makes the watch install the app but silently refuse to launch its screen. The
+repository, the npm package and the release artifacts keep the `AmazfitSokoban` name;
+"Box Pusher" is the store listing and what the watch shows in its app list.
 
 ## Pre-commit hooks (contributors)
 

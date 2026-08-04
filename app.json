@@ -1,8 +1,8 @@
 {
   "configVersion": "v3",
   "app": {
-    "appId": 1000001,
-    "appName": "Sokoban",
+    "appId": 1122456,
+    "appName": "Box Pusher",
     "appType": "app",
     "version": {
       "code": 100,
@@ -41,10 +41,10 @@
   },
   "i18n": {
     "en-US": {
-      "appName": "Sokoban"
+      "appName": "Box Pusher"
     },
     "ru-RU": {
-      "appName": "Sokoban"
+      "appName": "Box Pusher"
     }
   },
   "defaultLanguage": "en-US"
