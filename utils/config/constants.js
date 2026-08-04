@@ -8,22 +8,11 @@
 export const CELL_INSET = 1;
 export const TILE_RADIUS = 3;
 
-// How much of a cell is left around the thing standing on it. A crate nearly
-// fills its cell, the keeper is a smaller disc, and an empty goal is just a dot.
-export const INSET_BOX = 0.1;
-export const INSET_KEEPER = 0.2;
-export const INSET_GOAL = 0.33;
-
-// Colours drawn on the (black) watch screen.
+// The colours of the chrome around the board. The warehouse itself - floor,
+// walls, crates, goals, the keeper - is coloured in lib/render.js, next to the
+// rule that decides which of them a cell gets.
 export const COLOR_BACKGROUND = 0x000000;
 export const COLOR_BOARD_EDGE = 0x2b3339;
-export const COLOR_WALL = 0x3d4a55;
-export const COLOR_FLOOR = 0x141a1f;
-export const COLOR_FLOOR_GOAL = 0x16281f;
-export const COLOR_GOAL = 0x2fbf71;
-export const COLOR_BOX = 0xc9873a;
-export const COLOR_BOX_DONE = 0x2fbf71;
-export const COLOR_KEEPER = 0x4fa8ff;
 export const COLOR_TEXT = 0xffffff;
 export const COLOR_MUTED = 0x9aa4ab;
 export const COLOR_ACCENT = 0x2fbf71;
