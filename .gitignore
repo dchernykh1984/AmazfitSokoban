@@ -14,6 +14,10 @@ coverage/
 .zeus/
 .download/
 
+# The packed level collection: built from maps/*.sok by scripts/pack-maps.mjs
+# before every dev, preview and build. The text in maps/ is the source of truth.
+assets/common.r/levels.bin
+
 # ===== Environment variables =====
 .env
 .env.*
