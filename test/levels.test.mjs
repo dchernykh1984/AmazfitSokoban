@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import { DEFAULT_LEVEL, LEVELS, clampLevel, levelSpec, nextLevel } from "../lib/levels.js";
 import { UI_KEYS } from "../lib/i18n/keys.js";
 
-describe("the difficulty table", () => {
-  it("offers three difficulties, in order", () => {
-    expect(LEVELS.map((level) => level.id)).toEqual(["easy", "normal", "hard"]);
+describe("the size table", () => {
+  it("offers six sizes, smallest first", () => {
+    expect(LEVELS.map((level) => level.id)).toEqual(["xs", "s", "m", "l", "xl", "xxl"]);
   });
 
   it("grows the warehouse with the difficulty", () => {
@@ -27,15 +27,31 @@ describe("the difficulty table", () => {
     }
   });
 
-  it("shows the whole Easy board and less than the bigger ones", () => {
+  it("shows the two smallest whole and pans the rest", () => {
     expect(LEVELS[0].visible).toBe(LEVELS[0].cols);
-    for (let i = 1; i < LEVELS.length; i++) {
-      expect(LEVELS[i].visible).toBeLessThan(LEVELS[i].cols);
-      expect(LEVELS[i].visible).toBeGreaterThanOrEqual(LEVELS[i - 1].visible);
+    expect(LEVELS[1].visible).toBe(LEVELS[1].cols);
+    for (let i = 2; i < LEVELS.length; i++) {
+      expect(LEVELS[i].visible, LEVELS[i].id).toBeLessThan(LEVELS[i].cols);
     }
   });
 
-  it("names every difficulty with a key the screen can translate", () => {
+  it("never shows more cells than the window it was tuned for", () => {
+    for (const level of LEVELS) {
+      expect(level.visible, level.id).toBeLessThanOrEqual(11);
+    }
+  });
+
+  it("packs the bigger warehouses tighter, so they are not empty halls", () => {
+    let previous = 0;
+    for (const level of LEVELS) {
+      const density = level.blocks / ((level.cols - 2) * (level.rows - 2));
+      expect(density, level.id).toBeGreaterThanOrEqual(previous - 0.01);
+      expect(density, level.id).toBeLessThan(0.4);
+      previous = density;
+    }
+  });
+
+  it("names every size with a key the screen can translate", () => {
     for (const level of LEVELS) {
       expect(UI_KEYS).toContain(level.label);
     }
@@ -67,7 +83,7 @@ describe("nextLevel", () => {
       seen.push(level);
       level = nextLevel(level);
     }
-    expect(seen).toEqual([0, 1, 2]);
+    expect(seen).toEqual([0, 1, 2, 3, 4, 5]);
     expect(level).toBe(0);
   });
 

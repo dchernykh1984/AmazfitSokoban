@@ -47,8 +47,8 @@ describe("locale completeness", () => {
     expect(MAX_HINT).toBeGreaterThan(MAX_LABEL);
   });
 
-  it("names every difficulty and both halves of the control scheme", () => {
-    for (const key of ["level_easy", "level_normal", "level_hard", "hint_move", "hint_pan"]) {
+  it("names every warehouse size", () => {
+    for (const key of ["size_xs", "size_s", "size_m", "size_l", "size_xl", "size_xxl"]) {
       expect(UI_KEYS).toContain(key);
     }
   });

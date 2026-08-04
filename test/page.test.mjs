@@ -41,10 +41,10 @@ function tapStep(watch, direction) {
 }
 
 describe("the start screen", () => {
-  it("opens on the title, the difficulty and Play", async () => {
+  it("opens on the title, the size and Play", async () => {
     const watch = await launch({});
     expect(watch.texts()).toContain(EN.title);
-    expect(watch.buttons()).toEqual([EN.level_easy, EN.play]);
+    expect(watch.buttons()).toEqual([EN.size_xs, EN.play]);
   });
 
   it("shows a dash until something has been solved", async () => {
@@ -72,31 +72,32 @@ describe("the start screen", () => {
   });
 });
 
-describe("choosing a difficulty", () => {
-  it("cycles through all three and wraps", async () => {
+describe("choosing a size", () => {
+  it("cycles through every size and wraps", async () => {
     const watch = await launch({});
-    expect(watch.buttons()).toContain(EN.level_easy);
-    watch.press(EN.level_easy);
-    expect(watch.buttons()).toContain(EN.level_normal);
-    watch.press(EN.level_normal);
-    expect(watch.buttons()).toContain(EN.level_hard);
-    watch.press(EN.level_hard);
-    expect(watch.buttons()).toContain(EN.level_easy);
+    for (let i = 0; i < LEVELS.length; i++) {
+      const current = EN[LEVELS[i].label];
+      const next = EN[LEVELS[(i + 1) % LEVELS.length].label];
+      expect(watch.buttons(), LEVELS[i].id).toContain(current);
+      watch.press(current);
+      expect(watch.buttons(), LEVELS[i].id).toContain(next);
+    }
+    expect(watch.buttons()).toContain(EN.size_xs);
   });
 
   it("remembers it, so the game reopens the way it was left", async () => {
     const watch = await launch({});
-    watch.press(EN.level_easy);
+    watch.press(EN.size_xs);
     expect(watch.zos.storage.behaviour.items[LEVEL_KEY]).toBe(1);
 
     const reopened = await launch({ stored: { [LEVEL_KEY]: 1 } });
-    expect(reopened.buttons()).toContain(EN.level_normal);
+    expect(reopened.buttons()).toContain(EN.size_s);
   });
 
-  it("shows the best for the difficulty it is on", async () => {
+  it("shows the best for the size it is on", async () => {
     const watch = await launch({ stored: { [bestKey(0)]: 40, [bestKey(1)]: 90 } });
     expect(watch.texts()).toContain(EN.best + " 40");
-    watch.press(EN.level_easy);
+    watch.press(EN.size_xs);
     expect(watch.texts()).toContain(EN.best + " 90");
   });
 });
@@ -119,7 +120,7 @@ describe("starting a game", () => {
     expect(watch.buttons()).not.toContain(EN.play);
   });
 
-  it("gives the bigger difficulties a bigger warehouse than the window", async () => {
+  it("gives the bigger sizes a warehouse bigger than the window", async () => {
     const { watch } = await playing(5, 2);
     expect(watch.page.state.game.cols).toBe(LEVELS[2].cols);
     expect(watch.page.state.camera.visible).toBeLessThan(LEVELS[2].cols);
@@ -237,7 +238,7 @@ describe("the in-game menu", () => {
   it("offers a way back, a restart, a new puzzle and the difficulty", async () => {
     const { watch } = await playing(3);
     watch.press(EN.menu);
-    expect(watch.buttons()).toEqual([EN.resume, EN.restart, EN.new_game, EN.level]);
+    expect(watch.buttons()).toEqual([EN.resume, EN.restart, EN.new_game, EN.size]);
   });
 
   it("takes the counters and the play buttons off the screen", async () => {
@@ -283,8 +284,8 @@ describe("the in-game menu", () => {
   it("goes back to the start screen for a different difficulty", async () => {
     const { watch } = await playing(3);
     watch.press(EN.menu);
-    watch.press(EN.level);
-    expect(watch.buttons()).toEqual([EN.level_easy, EN.play]);
+    watch.press(EN.size);
+    expect(watch.buttons()).toEqual([EN.size_xs, EN.play]);
     expect(watch.page.state.tiles.length).toBe(0);
   });
 });
@@ -327,7 +328,7 @@ describe("solving the puzzle", () => {
   it("ends on the solved screen", async () => {
     const { watch } = await solve(3);
     expect(watch.texts()).toContain(EN.solved);
-    expect(watch.buttons()).toEqual([EN.new_game, EN.level]);
+    expect(watch.buttons()).toEqual([EN.new_game, EN.size]);
   });
 
   it("reports the moves it took and calls the first solve a record", async () => {
@@ -372,10 +373,10 @@ describe("a watch whose storage will not play along", () => {
 
   it("remembers the difficulty for the session when writes fail", async () => {
     const watch = await launch({ failWrites: true });
-    watch.press(EN.level_easy);
-    expect(watch.buttons()).toContain(EN.level_normal);
-    watch.press(EN.level_normal);
-    expect(watch.buttons()).toContain(EN.level_hard);
+    watch.press(EN.size_xs);
+    expect(watch.buttons()).toContain(EN.size_s);
+    watch.press(EN.size_s);
+    expect(watch.buttons()).toContain(EN.size_m);
   });
 });
 
