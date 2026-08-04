@@ -168,6 +168,13 @@ describe("generateLevel", () => {
     expect(generateLevel(spec, seeded(3))).toBeNull();
   });
 
+  // A spec with no room to pull anything scrambles nothing, which would leave
+  // every crate on its goal. Better no level at all than a finished one.
+  it("refuses to hand back a warehouse that is already solved", () => {
+    const spec = { cols: 5, rows: 5, boxes: 1, blocks: 0, pulls: 0, minPulls: 0 };
+    expect(generateLevel(spec, seeded(3))).toBeNull();
+  });
+
   for (const spec of LEVELS) {
     describe("the " + spec.id + " warehouse", () => {
       const levels = [];
