@@ -25,7 +25,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { qualityFor } from "../lib/collection.js";
-import { coverage, isFloorConnected } from "../lib/generator.js";
+import { isFloorConnected } from "../lib/generator.js";
 import { formatLevel, parseCollection } from "../lib/level-format.js";
 import { LEVELS } from "../lib/levels.js";
 import { EXHAUSTED, SOLVED, solve } from "../lib/solver.js";
@@ -119,13 +119,17 @@ function checkLevel(level, spec, deep) {
     problems.push("IS NOT SOLVABLE - the solver proved there is no way to finish it");
   }
 
-  return { problems, pushes, exhausted: verdict.status === EXHAUSTED };
+  // EXHAUSTED is NOT a pass. It means the solver ran out of budget, so this
+  // level is neither proved solvable nor proved unsolvable, and saying the
+  // collection is "sound" on the back of it would be a lie. It is reported
+  // separately so the summary can be honest about what was actually checked.
+  return { problems, pushes, unproven: verdict.status === EXHAUSTED };
 }
 
 function runShard(shard) {
   const spec = specFor(shard.id);
   const levels = loadSize(shard.id);
-  const report = { id: shard.id, checked: 0, failures: [], pushes: [], exhausted: 0, coverage: [] };
+  const report = { id: shard.id, checked: 0, failures: [], pushes: [], unproven: 0 };
 
   for (let i = shard.from; i < shard.to && i < levels.length; i++) {
     const level = levels[i];
@@ -134,11 +138,8 @@ function runShard(shard) {
     if (result.pushes > 0) {
       report.pushes.push(result.pushes);
     }
-    if (result.exhausted) {
-      report.exhausted += 1;
-    }
-    if (level.solution) {
-      report.coverage.push(coverage(level, level, level.solution));
+    if (result.unproven) {
+      report.unproven += 1;
     }
     for (const problem of result.problems) {
       report.failures.push({ index: i, problem, picture: formatLevel(level) });
@@ -254,13 +255,14 @@ async function main() {
   process.stdout.write("\r");
 
   let bad = 0;
+  let unprovenTotal = 0;
   for (const id of wanted) {
     const mine = reports.filter((report) => report.id === id);
     if (mine.length === 0) {
       continue;
     }
     const checked = mine.reduce((sum, report) => sum + report.checked, 0);
-    const exhausted = mine.reduce((sum, report) => sum + report.exhausted, 0);
+    const unproven = mine.reduce((sum, report) => sum + report.unproven, 0);
     const failures = mine.reduce((list, report) => list.concat(report.failures), []);
     const pushes = mine.reduce((list, report) => list.concat(report.pushes), []);
     bad += failures.length;
@@ -277,10 +279,12 @@ async function main() {
         (solvedAverage === null ? "n/a" : solvedAverage.toFixed(1)) +
         " (measured on " +
         pushes.length +
-        ", " +
-        exhausted +
-        " too hard to measure)"
+        ") | " +
+        (unproven > 0
+          ? unproven + " NOT PROVED SOLVABLE (solver out of budget)"
+          : "all proved solvable")
     );
+    unprovenTotal += unproven;
 
     for (const failure of failures.slice(0, 3)) {
       console.log("    level " + failure.index + " " + failure.problem);
@@ -298,7 +302,22 @@ async function main() {
     console.error(bad + " problems found");
     process.exit(1);
   }
-  console.log("The whole collection is sound.");
+  if (unprovenTotal > 0) {
+    // Every level was checked for shape, connectivity and a crate parked on a
+    // goal. What could not be checked here is whether the biggest ones can be
+    // finished: the solver has no hope inside a sane budget. Their solvability
+    // rests on the generator, which replays its own certificate through the
+    // rules before writing a level out - so this is a gap in THIS check, not a
+    // gap in the guarantee. Say so rather than claiming more than was done.
+    console.log(
+      "No problems found. " +
+        unprovenTotal +
+        " levels were too hard for the solver's budget, so their solvability rests on the" +
+        " generator's certificate rather than on this run."
+    );
+    return;
+  }
+  console.log("No problems found, and every level was proved solvable here.");
 }
 
 main().catch((error) => {
