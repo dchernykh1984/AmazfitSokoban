@@ -330,7 +330,7 @@ Page({
         text: this.text("best") + " " + (hasBest(best) ? best : "-"),
       },
       { kind: "gap", height: STACK_GAP },
-      { kind: "text", height: TEXT_SMALL, color: COLOR_MUTED, text: this.text("level") },
+      { kind: "text", height: TEXT_SMALL, color: COLOR_MUTED, text: this.text("size") },
       {
         kind: "button",
         height: BUTTON_HEIGHT,
@@ -435,7 +435,7 @@ Page({
       {
         kind: "button",
         height: BUTTON_HEIGHT,
-        text: this.text("level"),
+        text: this.text("size"),
         onClick: () => this.showStart(),
       },
     ]);
@@ -491,7 +491,7 @@ Page({
       {
         kind: "button",
         height: BUTTON_HEIGHT,
-        text: this.text("level"),
+        text: this.text("size"),
         onClick: () => this.showStart(),
       },
     ]);
