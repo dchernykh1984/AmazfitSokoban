@@ -11,9 +11,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "dev": "npx --yes @zeppos/zeus-cli@1.9.2 dev",
-    "preview": "npx --yes @zeppos/zeus-cli@1.9.2 preview",
-    "build": "npx --yes @zeppos/zeus-cli@1.9.2 build"
+    "maps": "node scripts/generate-maps.mjs",
+    "pack": "node scripts/pack-maps.mjs",
+    "dev": "npm run pack && npx --yes @zeppos/zeus-cli@1.9.2 dev",
+    "preview": "npm run pack && npx --yes @zeppos/zeus-cli@1.9.2 preview",
+    "build": "npm run pack && npx --yes @zeppos/zeus-cli@1.9.2 build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
