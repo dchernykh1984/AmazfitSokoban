@@ -8,17 +8,7 @@ import { boardLayout, cellRect, insetRect } from "../lib/board.js";
 import { generateLevel } from "../lib/generator.js";
 import { labelFor, languageFromZeppCode } from "../lib/i18n/index.js";
 import { LEVELS, clampLevel, levelSpec, nextLevel } from "../lib/levels.js";
-import {
-  BOX,
-  BOX_ON_GOAL,
-  FLOOR,
-  GOAL,
-  KEEPER,
-  KEEPER_ON_GOAL,
-  OUTSIDE,
-  WALL,
-  cellKind,
-} from "../lib/render.js";
+import { cellKind, tileStyle } from "../lib/render.js";
 import { centeredBox, splitRow } from "../lib/round-geometry.js";
 import { LEVEL_KEY, bestKey, hasBest, normalizeMoves, updateBest } from "../lib/scores.js";
 import {
@@ -55,21 +45,11 @@ import {
   COLOR_ACCENT,
   COLOR_BACKGROUND,
   COLOR_BOARD_EDGE,
-  COLOR_BOX,
-  COLOR_BOX_DONE,
   COLOR_BUTTON,
   COLOR_BUTTON_PRESSED,
-  COLOR_FLOOR,
-  COLOR_FLOOR_GOAL,
-  COLOR_GOAL,
-  COLOR_KEEPER,
   COLOR_MUTED,
   COLOR_TEXT,
-  COLOR_WALL,
   FOLLOW_MARGIN,
-  INSET_BOX,
-  INSET_GOAL,
-  INSET_KEEPER,
   MENU_WIDTH_FRACTION,
   SCRIM_ALPHA,
   SCREEN_PADDING,
@@ -94,28 +74,6 @@ const BUTTON_HEIGHT = Math.round(SCREEN_SIZE * BUTTON_HEIGHT_FRACTION);
 const STACK_GAP = Math.round(SCREEN_SIZE * STACK_GAP_FRACTION);
 const MENU_WIDTH = Math.round(SCREEN_SIZE * MENU_WIDTH_FRACTION);
 const TAP_SLOP = Math.round(SCREEN_SIZE * TAP_SLOP_FRACTION);
-
-// How a cell is painted: the floor tile under it, and the thing standing on it
-// drawn inset on top. When the two colours match, nothing is standing there.
-const TILE_STYLES = {};
-TILE_STYLES[OUTSIDE] = { base: COLOR_BACKGROUND, top: COLOR_BACKGROUND, inset: 0, round: false };
-TILE_STYLES[WALL] = { base: COLOR_WALL, top: COLOR_WALL, inset: 0, round: false };
-TILE_STYLES[FLOOR] = { base: COLOR_FLOOR, top: COLOR_FLOOR, inset: 0, round: false };
-TILE_STYLES[GOAL] = { base: COLOR_FLOOR_GOAL, top: COLOR_GOAL, inset: INSET_GOAL, round: true };
-TILE_STYLES[BOX] = { base: COLOR_FLOOR, top: COLOR_BOX, inset: INSET_BOX, round: false };
-TILE_STYLES[BOX_ON_GOAL] = {
-  base: COLOR_FLOOR_GOAL,
-  top: COLOR_BOX_DONE,
-  inset: INSET_BOX,
-  round: false,
-};
-TILE_STYLES[KEEPER] = { base: COLOR_FLOOR, top: COLOR_KEEPER, inset: INSET_KEEPER, round: true };
-TILE_STYLES[KEEPER_ON_GOAL] = {
-  base: COLOR_FLOOR_GOAL,
-  top: COLOR_KEEPER,
-  inset: INSET_KEEPER,
-  round: true,
-};
 
 // A widget that failed to take a setting is not worth crashing a game over, and
 // a watch that has no storage should still play - just without remembering. The
@@ -600,7 +558,7 @@ Page({
       }
       this.state.painted[i] = kind;
 
-      const style = TILE_STYLES[kind];
+      const style = tileStyle(kind);
       tile.base.setProperty(hmUI.prop.MORE, {
         x: tile.box.x,
         y: tile.box.y,

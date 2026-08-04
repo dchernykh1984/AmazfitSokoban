@@ -10,6 +10,7 @@ import {
   OUTSIDE,
   WALL,
   cellKind,
+  tileStyle,
 } from "../lib/render.js";
 import { createGame } from "../lib/sokoban.js";
 import { parseLevel } from "./helpers/ascii-level.mjs";
@@ -52,5 +53,54 @@ describe("cellKind", () => {
         expect(CELL_KINDS, x + "," + y).toContain(cellKind(game, x, y));
       }
     }
+  });
+});
+
+describe("tileStyle", () => {
+  it("has a style for every kind", () => {
+    for (const kind of CELL_KINDS) {
+      const style = tileStyle(kind);
+      expect(typeof style.base, kind).toBe("number");
+      expect(typeof style.top, kind).toBe("number");
+      expect(style.inset, kind).toBeGreaterThanOrEqual(0);
+      expect(style.inset, kind).toBeLessThan(0.5);
+      expect(typeof style.round, kind).toBe("boolean");
+    }
+  });
+
+  it("leaves nothing on top of an empty cell", () => {
+    for (const kind of [OUTSIDE, WALL, FLOOR]) {
+      expect(tileStyle(kind).top, kind).toBe(tileStyle(kind).base);
+    }
+  });
+
+  it("puts something visible on top of everything else", () => {
+    for (const kind of [GOAL, BOX, BOX_ON_GOAL, KEEPER, KEEPER_ON_GOAL]) {
+      expect(tileStyle(kind).top, kind).not.toBe(tileStyle(kind).base);
+      expect(tileStyle(kind).inset, kind).toBeGreaterThan(0);
+    }
+  });
+
+  it("tints the floor under every goal, covered or not", () => {
+    const tint = tileStyle(GOAL).base;
+    expect(tileStyle(BOX_ON_GOAL).base).toBe(tint);
+    expect(tileStyle(KEEPER_ON_GOAL).base).toBe(tint);
+    expect(tint).not.toBe(tileStyle(FLOOR).base);
+  });
+
+  it("tells a crate that is home from one that is not", () => {
+    expect(tileStyle(BOX).top).not.toBe(tileStyle(BOX_ON_GOAL).top);
+  });
+
+  it("draws the keeper and a bare goal as discs, and crates as crates", () => {
+    expect(tileStyle(KEEPER).round).toBe(true);
+    expect(tileStyle(GOAL).round).toBe(true);
+    expect(tileStyle(BOX).round).toBe(false);
+    expect(tileStyle(WALL).round).toBe(false);
+  });
+
+  it("paints an unknown kind as background rather than crashing a repaint", () => {
+    expect(tileStyle("not_a_kind")).toEqual(tileStyle(OUTSIDE));
+    expect(tileStyle(undefined)).toEqual(tileStyle(OUTSIDE));
   });
 });

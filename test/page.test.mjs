@@ -3,6 +3,7 @@ import { VECTORS } from "../lib/directions.js";
 import { generateLevel } from "../lib/generator.js";
 import { LABELS } from "../lib/i18n/labels.js";
 import { LEVELS } from "../lib/levels.js";
+import { cellKind, tileStyle } from "../lib/render.js";
 import { LEVEL_KEY, bestKey } from "../lib/scores.js";
 import { columnOf, rowOf } from "../lib/sokoban.js";
 import { seeded } from "./helpers/ascii-level.mjs";
@@ -375,5 +376,86 @@ describe("a watch whose storage will not play along", () => {
     expect(watch.buttons()).toContain(EN.level_normal);
     watch.press(EN.level_normal);
     expect(watch.buttons()).toContain(EN.level_hard);
+  });
+});
+
+describe("what actually ends up on the board", () => {
+  // Every other test checks the game state; this one checks the pixels. Each
+  // window slot is read back out of the widgets and compared against the style
+  // the rules say that cell should have, so a wrong index or a missed repaint
+  // shows up here rather than on a wrist.
+  function expectPainted(watch) {
+    const page = watch.page;
+    const camera = page.state.camera;
+    const window = camera.visible;
+    expect(page.state.tiles.length).toBe(window * window);
+
+    for (let i = 0; i < page.state.tiles.length; i++) {
+      const tile = page.state.tiles[i];
+      const style = tileStyle(
+        cellKind(page.state.game, camera.x + tile.column, camera.y + tile.row)
+      );
+      const where = "slot " + tile.column + "," + tile.row;
+      expect(tile.base.props.color, where + " floor").toBe(style.base);
+      expect(tile.top.props.color, where + " contents").toBe(style.top);
+    }
+  }
+
+  it("paints the whole window when a puzzle opens", async () => {
+    const { watch } = await playing(3);
+    expectPainted(watch);
+  });
+
+  it("shows the keeper, the crates and the goals as different things", async () => {
+    const { watch } = await playing(3);
+    const colors = watch.page.state.tiles.map((tile) => tile.top.props.color);
+    expect(new Set(colors).size).toBeGreaterThanOrEqual(4);
+  });
+
+  it("keeps the board in step with the keeper", async () => {
+    const { watch } = await playing(3);
+    const game = watch.page.state.game;
+    for (let direction = 0; direction < VECTORS.length; direction++) {
+      tapStep(watch, direction);
+      if (game.moves > 0) {
+        break;
+      }
+    }
+    expect(game.moves).toBeGreaterThan(0);
+    expectPainted(watch);
+  });
+
+  it("keeps the board in step with the map", async () => {
+    const { watch } = await playing(5, 2);
+    const camera = watch.page.state.camera;
+    const cell = watch.page.state.board.cell;
+    const middle = Math.round(watch.size / 2);
+    watch.drag(middle, middle, middle - 2 * cell, middle - 2 * cell, 8);
+    expect(camera.x).toBeGreaterThan(0);
+    expectPainted(watch);
+  });
+
+  it("keeps the board in step with undo", async () => {
+    const { watch } = await playing(3);
+    const game = watch.page.state.game;
+    for (let direction = 0; direction < VECTORS.length; direction++) {
+      tapStep(watch, direction);
+    }
+    const taken = game.moves;
+    watch.press(EN.undo);
+    expect(game.moves).toBe(taken - 1);
+    expectPainted(watch);
+  });
+
+  it("shows every crate home once the puzzle is solved", async () => {
+    const { watch, level } = await playing(3);
+    for (const direction of level.solution) {
+      tapStep(watch, direction);
+    }
+    expectPainted(watch);
+    const done = watch.page.state.tiles.filter(
+      (tile) => tile.top.props.color === tileStyle("box_on_goal").top
+    );
+    expect(done.length).toBeGreaterThanOrEqual(level.goals.length);
   });
 });
