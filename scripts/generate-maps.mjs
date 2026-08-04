@@ -25,6 +25,7 @@ import { generateLevel } from "../lib/generator.js";
 import { formatCollection, parseCollection } from "../lib/level-format.js";
 import { LEVELS } from "../lib/levels.js";
 import { seeded } from "../lib/random.js";
+import { createGame, isSolved, move } from "../lib/sokoban.js";
 
 const HERE = fileURLToPath(import.meta.url);
 const ROOT = join(dirname(HERE), "..");
@@ -69,6 +70,20 @@ function parseArgs(argv) {
   return options;
 }
 
+// Replay the generator's own solution through the rules and check it finishes.
+function certificateSolves(level) {
+  if (!level.solution || level.solution.length === 0) {
+    return false;
+  }
+  const game = createGame(level);
+  for (let i = 0; i < level.solution.length; i++) {
+    if (!move(game, level.solution[i]).moved) {
+      return false;
+    }
+  }
+  return isSolved(game);
+}
+
 function specFor(id) {
   for (const spec of LEVELS) {
     if (spec.id === id) {
@@ -99,6 +114,16 @@ function runShard(shard) {
     const key = fingerprint(level);
     if (seen[key]) {
       continue;
+    }
+
+    // Prove this exact warehouse can be finished before it goes in the file.
+    // The generator builds a certificate as it scrambles; replaying it through
+    // the real rule set is cheap and is the only solvability guarantee the big
+    // sizes get, because the solver cannot crack those inside any sane budget.
+    if (!certificateSolves(level)) {
+      throw new Error(
+        spec.id + ": the generator produced a level its own solution does not finish"
+      );
     }
 
     const verdict = judgeLevel(level, quality);

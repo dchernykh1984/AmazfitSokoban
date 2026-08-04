@@ -51,9 +51,37 @@ npm install
 npm test          # run the unit tests (Vitest)
 npm run lint      # ESLint
 npm run format    # rewrite files with Prettier
+npm run dev       # run in the Zepp OS simulator
 npm run preview   # QR-preview on a device via the Zepp app in Developer Mode
 npm run build     # produce the .zab store bundle
 ```
+
+### The level tools
+
+The warehouses the app ships with are generated on a computer, not on the watch,
+so they can be put through a real solver first. Everything needed to rebuild and
+check them lives in `scripts/`, so none of it has to be rewritten on the next
+machine:
+
+```bash
+npm run maps                              # rebuild the whole collection (~8 min on 8 cores)
+node scripts/generate-maps.mjs --counts xs=50 --seed 2 --jobs 4
+npm run pack                              # pack maps/*.sok into the binary the watch reads
+node scripts/validate-maps.mjs            # check every shipped warehouse
+node scripts/validate-maps.mjs --deep --sizes m,l
+node scripts/solve-map.mjs xs 12          # draw one warehouse and solve it
+```
+
+| Script              | What it does                                                                                                                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `generate-maps.mjs` | Builds `maps/<size>.sok`. Splits the work across every core, one child process per shard, and merges, de-duplicates and trims the result. Deterministic: same `--seed` and `--jobs`, same collection.            |
+| `pack-maps.mjs`     | Turns `maps/*.sok` into `assets/common.r/levels.bin`. Runs automatically before `dev`, `preview` and `build`.                                                                                                    |
+| `validate-maps.mjs` | Puts every warehouse through the real rule set and the real solver: size, crate count, connected floor, no crate starting on a goal, actually solvable, not trivially easy. Exits non-zero if anything is wrong. |
+| `solve-map.mjs`     | Draws a single warehouse and solves it - for when a level looks odd and you want the solver's opinion.                                                                                                           |
+
+The text in `maps/` is the source of truth and is committed, so a change to the
+collection shows up as a readable diff. The packed binary is a build artefact and
+is git-ignored.
 
 `preview` and `build` fetch the [Zeus CLI](https://docs.zepp.com/docs/guides/quick-start/)
 on demand (`npx`), so it is not tracked as a dependency; the first run downloads it.
