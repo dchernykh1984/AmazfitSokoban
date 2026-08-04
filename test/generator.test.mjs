@@ -256,13 +256,18 @@ describe("generateLevel", () => {
         }
       });
 
-      it("needs at least as many pushes as the difficulty promises", () => {
+      // The certificate is the scramble read backwards, not the shortest way
+      // through, so this is how far the crates were dragged from their goals -
+      // an upper bound on the puzzle, not its minimum. It is still the number
+      // the difficulty is tuned by: below it, a warehouse is a formality.
+      it("drags the crates as far off their goals as the difficulty asks", () => {
         for (const { seed, level } of levels) {
           const game = createGame(level);
           for (const direction of level.solution) {
             move(game, direction);
           }
           expect(game.pushes, "seed " + seed).toBeGreaterThanOrEqual(spec.minPulls);
+          expect(game.pushes, "seed " + seed).toBeLessThanOrEqual(spec.pulls);
         }
       });
     });
