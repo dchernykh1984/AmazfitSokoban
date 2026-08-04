@@ -35,9 +35,11 @@ export const COLOR_BUTTON_PRESSED = 0x2f3d46;
 export const BOARD_EDGE = 3;
 export const SCREEN_PADDING = 8;
 
-// How much a menu dims the board behind it: opaque enough to read white text
-// over, sheer enough that the puzzle is still there.
-export const SCRIM_ALPHA = 216;
+// How much a menu dims the board behind it. The board is already nearly black,
+// so three quarters is enough for white text to sit on comfortably - and it
+// leaves the crates ghosting through, which is the point on the solved screen,
+// where seeing where the last one went is half the reward.
+export const SCRIM_ALPHA = 190;
 
 // The menu type scale and the caps above and below the board, all as fractions of
 // the screen diameter.
