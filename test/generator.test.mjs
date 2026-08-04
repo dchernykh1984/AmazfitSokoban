@@ -3,6 +3,10 @@ import { DIRECTIONS, VECTORS } from "../lib/directions.js";
 import {
   buildSolution,
   carveWalls,
+  coverage,
+  sectorOf,
+  spreadGoals,
+  workingArea,
   directionBetween,
   findPath,
   floorCells,
@@ -144,6 +148,74 @@ describe("pullableCells", () => {
   });
 });
 
+describe("sectorOf", () => {
+  it("splits the warehouse into a grid", () => {
+    const shape = parseShape(["#########", "#-------#", "#-------#", "#########"]);
+    expect(sectorOf(shape, 0, 3)).toBe(0);
+    expect(sectorOf(shape, 8, 3)).toBe(2);
+    expect(sectorOf(shape, 3 * 9 + 8, 3)).toBe(8);
+  });
+
+  it("never falls off the last sector", () => {
+    const shape = parseShape(["#####", "#---#", "#####"]);
+    const last = shape.cols * shape.rows - 1;
+    expect(sectorOf(shape, last, 2)).toBe(3);
+    expect(sectorOf(shape, last, 3)).toBe(8);
+  });
+});
+
+describe("spreadGoals", () => {
+  const shape = parseShape([
+    "#############",
+    "#-----------#",
+    "#-----------#",
+    "#-----------#",
+    "#-----------#",
+    "#-----------#",
+    "#############",
+  ]);
+
+  it("takes the goals from different corners of the warehouse", () => {
+    const candidates = floorCells(shape);
+    const goals = spreadGoals(shape, candidates, 4, seeded(5));
+    const sectors = goals.map((index) => sectorOf(shape, index, 3));
+    expect(new Set(sectors).size).toBeGreaterThan(1);
+    expect(new Set(goals).size).toBe(4);
+  });
+
+  it("keeps going when there are fewer sectors than goals", () => {
+    const small = parseShape(["#####", "#---#", "#---#", "#####"]);
+    const goals = spreadGoals(small, floorCells(small), 5, seeded(2));
+    expect(goals.length).toBe(5);
+    expect(new Set(goals).size).toBe(5);
+  });
+
+  it("gives up rather than repeating a cell it has already used", () => {
+    const tiny = parseShape(["####", "#--#", "####"]);
+    expect(spreadGoals(tiny, floorCells(tiny), 5, seeded(1))).toBeNull();
+  });
+});
+
+describe("workingArea and coverage", () => {
+  it("counts the cells the solution actually touches", () => {
+    const level = parseLevel(["######", "#@$.-#", "######"]);
+    // One push: the keeper starts on 1, steps to 2, the crate moves 2 -> 3.
+    const used = workingArea(level, level, [DIRECTIONS[1]]);
+    expect(used).toBe(3);
+  });
+
+  it("is the share of the floor that is in play", () => {
+    const level = parseLevel(["######", "#@$.-#", "######"]);
+    // Four floor cells, three of them used.
+    expect(coverage(level, level, [DIRECTIONS[1]])).toBeCloseTo(3 / 4, 5);
+  });
+
+  it("is zero when there is no solution to walk", () => {
+    const level = parseLevel(["######", "#@$.-#", "######"]);
+    expect(coverage(level, level, null)).toBe(0);
+  });
+});
+
 describe("buildSolution", () => {
   it("turns the recorded pulls back into pushes", () => {
     // The box was pulled one cell left off its goal, leaving the keeper on its
@@ -208,6 +280,14 @@ describe("generateLevel", () => {
             expect(isWall(level, 0, y), "seed " + seed).toBe(true);
             expect(isWall(level, level.cols - 1, y), "seed " + seed).toBe(true);
           }
+        }
+      });
+
+      // The whole point of spreading the goals: a big warehouse where the game
+      // happens in one corner is a big map, not a big puzzle.
+      it("puts a real share of its own floor in play", () => {
+        for (const { seed, level } of levels) {
+          expect(level.coverage, "seed " + seed).toBeGreaterThanOrEqual(0.45);
         }
       });
 
