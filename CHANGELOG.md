@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.3.0](https://github.com/dchernykh1984/AmazfitSokoban/compare/amazfit-sokoban-v0.2.0...amazfit-sokoban-v0.3.0) (2026-08-05)
+
+
+### Features
+
+* add the generated warehouse collection ([a90604c](https://github.com/dchernykh1984/AmazfitSokoban/commit/a90604cfec578346706b0371700c5ea57e8e1531))
+* build the shipped collection with an offline quality gate ([314d151](https://github.com/dchernykh1984/AmazfitSokoban/commit/314d151e17ef182cbece08bbf73610a512ff8728))
+* check and solve the collection from the command line ([0b6c318](https://github.com/dchernykh1984/AmazfitSokoban/commit/0b6c318a61d1fa637a9bfdc1a6aa517164930b4c))
+* deal every warehouse once before repeating any ([13352ed](https://github.com/dchernykh1984/AmazfitSokoban/commit/13352ed23ed66df17015fc9b4b0f99f2643cf31e))
+* draw crates, goal rings and a keeper that faces its push ([07d913d](https://github.com/dchernykh1984/AmazfitSokoban/commit/07d913d834bbad1f5e330d20a8a30f35246db17f))
+* draw the arrows and the undo and menu icons ([f63c1d2](https://github.com/dchernykh1984/AmazfitSokoban/commit/f63c1d27b335095936063e96cf6d64d7645c28f1))
+* draw the game on a canvas and steer it with the arrows ([450fb29](https://github.com/dchernykh1984/AmazfitSokoban/commit/450fb29efa208feeabcb3b84591c60f86dcec5a0))
+* find the fewest pushes a warehouse can be finished in ([6c9c893](https://github.com/dchernykh1984/AmazfitSokoban/commit/6c9c893c50cac587635498aaa4b3ac0cb5793127))
+* generate a warehouse in slices behind a progress bar ([8514afc](https://github.com/dchernykh1984/AmazfitSokoban/commit/8514afc6a484f8ecc1a63e30483992729187adad))
+* grow the warehouse to six sizes from xs to xxl ([0cba718](https://github.com/dchernykh1984/AmazfitSokoban/commit/0cba7180ce606c49548670abc2c1367be3438bdb))
+* lay the four arrows out in the segments around the board ([b555aa2](https://github.com/dchernykh1984/AmazfitSokoban/commit/b555aa272333d4c81bd67f34ecff2330c43e8c08))
+* pack the collection into a binary the watch can seek in ([030b5c1](https://github.com/dchernykh1984/AmazfitSokoban/commit/030b5c196655768d61775cdc985a4ff0352177c2))
+* play the shipped collection and keep a best per source ([d589e34](https://github.com/dchernykh1984/AmazfitSokoban/commit/d589e34e628ce56731444c3f099d9cb747d024ed))
+* read one warehouse from the collection without loading it ([214ffc7](https://github.com/dchernykh1984/AmazfitSokoban/commit/214ffc7e715d03c3cbfbd3337c602339a8167cc5))
+* rebuild the collection with the new quality bars ([a60dba0](https://github.com/dchernykh1984/AmazfitSokoban/commit/a60dba068c96a9a6db293253911449aaa909b677))
+* reject empty maps, shallow puzzles and a walled-in keeper ([5132054](https://github.com/dchernykh1984/AmazfitSokoban/commit/5132054a1589bafdce4d7c539f8087014c538594))
+* save the game so a big warehouse can be finished later ([ec44bab](https://github.com/dchernykh1984/AmazfitSokoban/commit/ec44bab0658c4e2e7206c83ebd21726c19144c54))
+* spread the goals so no corner of the warehouse is dead ([499ee97](https://github.com/dchernykh1984/AmazfitSokoban/commit/499ee97c73186f92776454e5c8d0c1ecf0cd5b56))
+* store warehouses in a text format a diff can show ([64a93bd](https://github.com/dchernykh1984/AmazfitSokoban/commit/64a93bdb0b52d88d057edbd45ef859d05c370e49))
+
+
+### Bug Fixes
+
+* stop the validator claiming levels it never proved solvable ([172159f](https://github.com/dchernykh1984/AmazfitSokoban/commit/172159f55b01f304c7158fbac0fd87302c8b67de))
+* swallow swipes while a warehouse is being generated ([ea41d3d](https://github.com/dchernykh1984/AmazfitSokoban/commit/ea41d3d64f3af43276aff1fa8aed6094eeb77664))
+* take the canvas down so menu buttons can be pressed ([a2b9a52](https://github.com/dchernykh1984/AmazfitSokoban/commit/a2b9a524b5bfd92fe6b04b9a0b8ef9d1d3661e78))
+
+
+### Performance Improvements
+
+* build the collection on every core at once ([f881c1a](https://github.com/dchernykh1984/AmazfitSokoban/commit/f881c1a664ef9f6f1b1ba07f787aa070d25b95b2))
+* repaint only the cells a step actually changed ([caa4721](https://github.com/dchernykh1984/AmazfitSokoban/commit/caa4721f083418197ed8517c256c2c164aaea07f))
+* stop re-parsing the save after every move ([9ded26f](https://github.com/dchernykh1984/AmazfitSokoban/commit/9ded26fef91dbcf2e63eae4ea747d5af0e97bf87))
+
 ## [0.2.0](https://github.com/dchernykh1984/AmazfitSokoban/compare/amazfit-sokoban-v0.1.0...amazfit-sokoban-v0.2.0) (2026-08-04)
 
 
