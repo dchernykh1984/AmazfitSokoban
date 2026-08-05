@@ -207,9 +207,17 @@ Page({
   },
 
   // The canvas is the whole screen: it draws the board and the controls, and it
-  // is what every touch lands on. Menus are widgets created after it, so they
-  // sit on top and take their own taps.
+  // is what every touch lands on.
+  //
+  // It is DELETED whenever a menu opens, and rebuilt when the game comes back.
+  // That is not tidiness - it is required. On a real watch a canvas that is
+  // listening swallows the touch even when a button is drawn on top of it, so
+  // leaving it up makes every menu button dead. Found on the simulator, where
+  // the start screen would not respond to anything at all.
   drawCanvas() {
+    if (this.state.canvas) {
+      return;
+    }
     const canvas = hmUI.createWidget(hmUI.widget.CANVAS, {
       x: 0,
       y: 0,
@@ -319,7 +327,6 @@ Page({
     this.state.screen = "start";
     this.state.game = null;
     this.clearCounter();
-    this.paintBackground();
 
     const spec = levelSpec(this.state.level);
     const best = this.state.best;
@@ -367,6 +374,7 @@ Page({
     }
 
     this.clearMenu();
+    this.drawCanvas();
     this.state.screen = "playing";
     this.state.game = createGame(level);
     this.state.facing = -1;
@@ -441,6 +449,7 @@ Page({
       return;
     }
     this.clearMenu();
+    this.drawCanvas();
     this.state.screen = "playing";
     cancelTouch(this.state.touch);
     this.paintBoard();
@@ -619,6 +628,7 @@ Page({
   // it stays readable on top of a half-solved warehouse.
   drawMenu(items) {
     this.clearMenu();
+    this.removeCanvas();
 
     let height = 0;
     for (let i = 0; i < items.length; i++) {
@@ -689,6 +699,15 @@ Page({
       hmUI.deleteWidget(this.state.menu[i]);
     }
     this.state.menu = [];
+  },
+
+  // Take the canvas away so the buttons underneath a menu can actually be
+  // pressed. Everything it was showing is redrawn when the game resumes.
+  removeCanvas() {
+    if (this.state.canvas) {
+      hmUI.deleteWidget(this.state.canvas);
+      this.state.canvas = null;
+    }
   },
 
   text(key) {
