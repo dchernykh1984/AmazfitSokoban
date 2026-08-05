@@ -25,6 +25,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { qualityFor } from "../lib/collection.js";
+import { measure } from "../lib/quality.js";
 import { isFloorConnected } from "../lib/generator.js";
 import { formatLevel, parseCollection } from "../lib/level-format.js";
 import { LEVELS } from "../lib/levels.js";
@@ -106,6 +107,30 @@ function checkLevel(level, spec, deep) {
   }
 
   const quality = qualityFor(spec.id);
+
+  // The shape checks: cheap, and the only quality signal the big sizes get,
+  // because the solver cannot finish those inside any sane budget.
+  const shape = measure(level);
+  let floor = 0;
+  for (let i = 0; i < level.walls.length; i++) {
+    if (level.walls[i] === 0) {
+      floor += 1;
+    }
+  }
+  if (shape.emptyBlock > quality.maxEmpty) {
+    problems.push(
+      "wastes " + Math.round(shape.emptyBlock * 100) + "% of its floor on an empty block"
+    );
+  }
+  if (shape.lowerBound < quality.minBound) {
+    problems.push("is shallow: the crates need only " + shape.lowerBound + " pushes between them");
+  }
+  if (shape.freedom < floor * quality.minFreedom) {
+    problems.push(
+      "walls the keeper in: only " + shape.freedom + " of " + floor + " cells reachable"
+    );
+  }
+
   const budget = deep ? quality.budget * 4 : quality.budget;
   const verdict = solve(level, budget);
   let pushes = -1;
