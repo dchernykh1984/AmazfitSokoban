@@ -6,8 +6,40 @@ import { LEVELS } from "../lib/levels.js";
 import { COLOR_BOX, COLOR_BOX_DONE, COLOR_KEEPER } from "../lib/paint.js";
 import { seeded } from "../lib/random.js";
 import { LEVEL_KEY, bestKey } from "../lib/scores.js";
+import { BUILT_IN, GENERATED, SOURCE_KEY } from "../lib/sources.js";
 
+import { encodeCollection } from "../lib/level-pack.js";
+import { decodeProgress, isPlayed, progressKey } from "../lib/progress.js";
+import { generateLevel as makeLevel } from "../lib/generator.js";
 import { launch } from "./helpers/watch.mjs";
+
+// A small real collection of XS warehouses, packed exactly the way the build
+// packs the shipped one.
+function buildCollection() {
+  const spec = LEVELS[0];
+  const levels = [];
+  for (let i = 0; i < 4; i++) {
+    levels.push(makeLevel(spec, seeded(i * 71 + 5)));
+  }
+  return encodeCollection([{ cols: spec.cols, rows: spec.rows, boxes: spec.boxes, levels }]);
+}
+
+// The certificate for whatever warehouse the page dealt, found by matching the
+// board it is showing against the collection it was built from.
+function solutionFor(watch) {
+  const spec = LEVELS[0];
+  const game = watch.page.state.game;
+  for (let i = 0; i < 4; i++) {
+    const candidate = makeLevel(spec, seeded(i * 71 + 5));
+    if (
+      candidate.player === game.start.player &&
+      String(candidate.boxes) === String(game.start.boxes)
+    ) {
+      return candidate.solution;
+    }
+  }
+  throw new Error("the page dealt a warehouse that is not in the collection");
+}
 
 const EN = LABELS.en;
 const ARROW_OF = { [UP]: "up", [DOWN]: "down", [LEFT]: "left", [RIGHT]: "right" };
@@ -51,7 +83,7 @@ describe("the start screen", () => {
   it("opens on the title, the size and Play", async () => {
     const watch = await launch({});
     expect(watch.texts()).toContain(EN.title);
-    expect(watch.buttons()).toEqual([EN.size_xs, EN.play]);
+    expect(watch.buttons()).toEqual([EN.size_xs, EN.source_builtin, EN.play]);
   });
 
   it("shows a dash until something has been solved", async () => {
@@ -95,7 +127,9 @@ describe("choosing a size", () => {
   });
 
   it("shows the best for the size it is on", async () => {
-    const watch = await launch({ stored: { [bestKey(0)]: 40, [bestKey(1)]: 90 } });
+    const watch = await launch({
+      stored: { [bestKey(0, BUILT_IN)]: 40, [bestKey(1, BUILT_IN)]: 90 },
+    });
     expect(watch.texts()).toContain(EN.best + " 40");
     watch.press(EN.size_xs);
     expect(watch.texts()).toContain(EN.best + " 90");
@@ -338,7 +372,7 @@ describe("the in-game menu", () => {
     const { watch } = await playing(3);
     watch.tapControl("menu");
     watch.press(EN.size);
-    expect(watch.buttons()).toEqual([EN.size_xs, EN.play]);
+    expect(watch.buttons()).toEqual([EN.size_xs, EN.source_builtin, EN.play]);
     expect(watch.page.state.game).toBeNull();
   });
 });
@@ -365,16 +399,16 @@ describe("solving the puzzle", () => {
     const { watch, level } = await solve(3);
     expect(watch.texts()).toContain(EN.moves + " " + level.solution.length);
     expect(watch.texts()).toContain(EN.new_best);
-    expect(watch.zos.storage.behaviour.items[bestKey(0)]).toBe(level.solution.length);
+    expect(watch.zos.storage.behaviour.items[bestKey(0, BUILT_IN)]).toBe(level.solution.length);
   });
 
   it("keeps a better record rather than overwriting it with a worse one", async () => {
-    const { watch, level } = await playing(3, 0, { stored: { [bestKey(0)]: 1 } });
+    const { watch, level } = await playing(3, 0, { stored: { [bestKey(0, BUILT_IN)]: 1 } });
     for (const direction of level.solution) {
       pressArrow(watch, direction);
     }
     expect(watch.texts()).toContain(EN.best + " 1");
-    expect(watch.zos.storage.behaviour.items[bestKey(0)]).toBe(1);
+    expect(watch.zos.storage.behaviour.items[bestKey(0, BUILT_IN)]).toBe(1);
   });
 
   it("stops listening to the arrows once it is solved", async () => {
@@ -444,5 +478,80 @@ describe("a watch whose storage will not play along", () => {
     expect(watch.buttons()).toContain(EN.size_s);
     watch.press(EN.size_s);
     expect(watch.buttons()).toContain(EN.size_m);
+  });
+});
+
+describe("choosing where the levels come from", () => {
+  it("offers the shipped collection and random ones, and remembers the choice", async () => {
+    const watch = await launch({});
+    expect(watch.buttons()).toContain(EN.source_builtin);
+
+    watch.press(EN.source_builtin);
+    expect(watch.buttons()).toContain(EN.source_random);
+    expect(watch.zos.storage.behaviour.items[SOURCE_KEY]).toBe(GENERATED);
+
+    const reopened = await launch({ stored: { [SOURCE_KEY]: GENERATED } });
+    expect(reopened.buttons()).toContain(EN.source_random);
+  });
+
+  // A random level and a vetted one are not the same challenge, so one best
+  // score covering both would mean nothing.
+  it("keeps a separate best for each source", async () => {
+    const watch = await launch({
+      stored: { [bestKey(0, BUILT_IN)]: 30, [bestKey(0, GENERATED)]: 70 },
+    });
+    expect(watch.texts()).toContain(EN.best + " 30");
+    watch.press(EN.source_builtin);
+    expect(watch.texts()).toContain(EN.best + " 70");
+  });
+
+  it("plays a warehouse out of the collection when there is one", async () => {
+    const collection = buildCollection();
+    const watch = await launch({ collection, random: seeded(4) });
+    watch.press(EN.play);
+
+    const game = watch.page.state.game;
+    expect(game).not.toBeNull();
+    expect(game.cols).toBe(LEVELS[0].cols);
+    // The level came from the file, so the page knows which one it dealt.
+    expect(watch.page.state.dealt).toBeGreaterThanOrEqual(0);
+  });
+
+  it("strikes a finished warehouse off so it is not dealt again", async () => {
+    const collection = buildCollection();
+    const watch = await launch({ collection, random: seeded(4) });
+    watch.press(EN.play);
+
+    const dealt = watch.page.state.dealt;
+    const level = watch.page.state.game;
+    // Walk the certificate of whatever was dealt.
+    const solution = solutionFor(watch);
+    for (const direction of solution) {
+      pressArrow(watch, direction);
+    }
+
+    const record = watch.zos.storage.behaviour.items[progressKey(LEVELS[0].id)];
+    expect(record, "nothing was recorded as played").toBeTruthy();
+    const progress = decodeProgress(record, 64);
+    expect(isPlayed(progress, dealt)).toBe(true);
+    expect(level).not.toBeNull();
+  });
+
+  it("falls back to generating when the collection is missing", async () => {
+    const watch = await launch({ random: seeded(4) });
+    watch.press(EN.play);
+    expect(watch.page.state.game).not.toBeNull();
+    expect(watch.page.state.dealt).toBe(-1);
+  });
+
+  it("falls back to generating when the collection cannot be opened", async () => {
+    const watch = await launch({
+      collection: buildCollection(),
+      failAssetOpen: true,
+      random: seeded(4),
+    });
+    watch.press(EN.play);
+    expect(watch.page.state.game).not.toBeNull();
+    expect(watch.page.state.dealt).toBe(-1);
   });
 });

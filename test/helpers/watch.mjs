@@ -6,7 +6,7 @@
 // swipe, and tap the buttons that are actually on screen.
 import { vi } from "vitest";
 
-const ZOS = ["ui", "settings", "interaction", "display", "storage", "device"];
+const ZOS = ["ui", "settings", "interaction", "display", "storage", "device", "fs"];
 
 export async function launch(options) {
   const settings = options || {};
@@ -24,6 +24,12 @@ export async function launch(options) {
   zos.device.device.width = size;
   zos.device.device.height = size;
   zos.settings.language.code = settings.language === undefined ? 2 : settings.language;
+
+  zos.fs.resetAssets();
+  if (settings.collection) {
+    zos.fs.assets.files["levels.bin"] = settings.collection;
+  }
+  zos.fs.assets.failOpen = Boolean(settings.failAssetOpen);
 
   zos.storage.resetStorage();
   Object.assign(zos.storage.behaviour.items, settings.stored || {});
