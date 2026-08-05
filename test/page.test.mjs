@@ -556,3 +556,72 @@ describe("choosing where the levels come from", () => {
     expect(watch.page.state.dealt).toBe(-1);
   });
 });
+
+describe("generating a warehouse on the watch", () => {
+  // Drive the generation the way the timer does, but by hand, so the test does
+  // not have to wait on real timers.
+  function grind(watch) {
+    for (let i = 0; i < 300 && watch.page.state.screen === "generating"; i++) {
+      watch.page.tickGeneration();
+    }
+  }
+
+  async function generating(seed) {
+    const watch = await launch({ random: seeded(seed) });
+    watch.press(EN.source_builtin);
+    expect(watch.buttons()).toContain(EN.source_random);
+    watch.press(EN.play);
+    return watch;
+  }
+
+  it("shows a progress screen instead of freezing", async () => {
+    const watch = await generating(4);
+    expect(watch.page.state.screen).toBe("generating");
+    expect(watch.texts()).toContain(EN.generating);
+    expect(watch.page.state.progress).not.toBeNull();
+  });
+
+  it("moves the bar as it goes, rather than jumping at the end", async () => {
+    const watch = await generating(4);
+    const widths = [];
+    for (let i = 0; i < 40 && watch.page.state.screen === "generating"; i++) {
+      watch.page.tickGeneration();
+      if (watch.page.state.progress) {
+        widths.push(watch.page.state.progress.bar.props.w);
+      }
+    }
+    for (let i = 1; i < widths.length; i++) {
+      expect(widths[i]).toBeGreaterThanOrEqual(widths[i - 1]);
+    }
+  });
+
+  it("ends up in a playable game", async () => {
+    const watch = await generating(4);
+    grind(watch);
+
+    expect(watch.page.state.screen).toBe("playing");
+    expect(watch.page.state.game).not.toBeNull();
+    expect(watch.page.state.game.moves).toBe(0);
+    // Generated on the watch, so it is not one of the shipped warehouses.
+    expect(watch.page.state.dealt).toBe(-1);
+  });
+
+  it("counts a generated warehouse against its own record", async () => {
+    const watch = await generating(4);
+    grind(watch);
+    expect(watch.page.state.source).toBe(GENERATED);
+  });
+
+  it("stops the generation when the player backs out", async () => {
+    const watch = await generating(4);
+    watch.page.showStart();
+    expect(watch.page.state.run).toBeNull();
+    expect(watch.page.state.runTimer).toBeNull();
+  });
+
+  it("stops the generation when the page goes away", async () => {
+    const watch = await generating(4);
+    watch.page.onDestroy();
+    expect(watch.page.state.run).toBeNull();
+  });
+});

@@ -16,6 +16,14 @@ import {
   isDirectionHit,
 } from "../lib/controls.js";
 import { generateLevel } from "../lib/generator.js";
+import {
+  DONE,
+  RUNNING,
+  generationProgress,
+  generationResult,
+  startGeneration,
+  stepGeneration,
+} from "../lib/generator-steps.js";
 import { labelFor, languageFromZeppCode } from "../lib/i18n/index.js";
 import { LEVELS, clampLevel, levelSpec, nextLevel } from "../lib/levels.js";
 import { COLOR_EMPTY, paintArrow, paintCell, paintMenuIcon, paintUndoIcon } from "../lib/paint.js";
@@ -95,6 +103,7 @@ const MENU_WIDTH = Math.round(SCREEN_SIZE * MENU_WIDTH_FRACTION);
 const TAP_SLOP = Math.round(SCREEN_SIZE * TAP_SLOP_FRACTION);
 
 const BOARD_EDGE_WIDTH = 3;
+const PROGRESS_HEIGHT = Math.round(SCREEN_SIZE * 0.09);
 
 // The packed collection, built from maps/*.sok by scripts/pack-maps.mjs.
 const LEVELS_FILE = "levels.bin";
@@ -193,6 +202,10 @@ Page({
     dealt: -1,
     // A game left unfinished last time, if there is one.
     saved: null,
+    // The generation in flight, and the widgets showing how it is going.
+    run: null,
+    runTimer: null,
+    progress: null,
     screen: "start",
     storage: null,
     destroyed: false,
@@ -250,6 +263,7 @@ Page({
 
   onDestroy() {
     this.state.destroyed = true;
+    this.stopGeneration();
     try {
       offGesture();
     } catch {
@@ -264,6 +278,14 @@ Page({
 
   // The board and the controls are laid out per size, because a bigger warehouse
   // is shown through a window of smaller cells.
+  stopGeneration() {
+    if (this.state.runTimer !== null) {
+      clearTimeout(this.state.runTimer);
+      this.state.runTimer = null;
+    }
+    this.state.run = null;
+  },
+
   useSize(level) {
     this.state.level = clampLevel(level);
     this.state.board = BOARDS[this.state.level];
@@ -423,6 +445,7 @@ Page({
   // ---------------------------------------------------------------- screens ----
 
   showStart() {
+    this.stopGeneration();
     this.state.screen = "start";
     this.state.game = null;
     this.clearCounter();
@@ -594,16 +617,32 @@ Page({
 
   startGame() {
     const spec = levelSpec(this.state.level);
+
+    // Generating on the watch takes long enough to be worth showing, and a
+    // frozen screen would be the alternative: nothing repaints while a
+    // single-threaded generator runs. So it is done a slice at a time behind a
+    // progress bar. Reading one out of the shipped collection is instant and
+    // needs none of this.
+    if (this.state.source !== BUILT_IN) {
+      this.showGenerating(spec);
+      return;
+    }
+
     const level = this.dealLevel(spec);
     if (level === null || level === undefined) {
       return;
     }
 
+    this.beginGame(spec, level, -1);
+  },
+
+  // Put a warehouse on screen and start playing it.
+  beginGame(spec, level, facing) {
     this.clearMenu();
     this.drawCanvas();
     this.state.screen = "playing";
     this.state.game = createGame(level);
-    this.state.facing = -1;
+    this.state.facing = facing;
     this.state.camera = createCamera(level.cols, level.rows, spec.visible, this.state.board.cell);
     centerCamera(
       this.state.camera,
@@ -616,6 +655,65 @@ Page({
     this.paintControls();
     this.paintCounter();
     this.saveGame();
+  },
+
+  // The progress screen, and the timer that drives the generation. Each tick
+  // does one attempt and then hands control back, which is what lets the bar
+  // actually move.
+  showGenerating(spec) {
+    this.state.screen = "generating";
+    this.state.run = startGeneration(spec, Math.random);
+    this.clearCounter();
+    this.drawMenu([
+      { kind: "text", height: TEXT_ROW, color: COLOR_TEXT, text: this.text("generating") },
+      { kind: "gap", height: STACK_GAP },
+      { kind: "progress" },
+    ]);
+
+    // The first attempt is scheduled rather than run here: doing it inline would
+    // finish a small warehouse before the screen had ever been painted, and the
+    // player would see the progress screen flash past for no reason.
+    this.state.runTimer = setTimeout(() => this.tickGeneration(), 1);
+  },
+
+  tickGeneration() {
+    if (this.state.destroyed || this.state.screen !== "generating" || this.state.run === null) {
+      return;
+    }
+
+    stepGeneration(this.state.run);
+    this.paintProgress(generationProgress(this.state.run));
+
+    if (this.state.run.status === RUNNING) {
+      this.state.runTimer = setTimeout(() => this.tickGeneration(), 1);
+      return;
+    }
+
+    const level = this.state.run.status === DONE ? generationResult(this.state.run) : null;
+    this.state.run = null;
+    this.state.runTimer = null;
+
+    if (level === null) {
+      // Nothing usable came out. Say so rather than opening an empty board.
+      this.showStart();
+      return;
+    }
+    this.beginGame(levelSpec(this.state.level), level, -1);
+  },
+
+  paintProgress(fraction) {
+    if (!this.state.progress) {
+      return;
+    }
+    const full = this.state.progress.full;
+    this.state.progress.bar.setProperty(hmUI.prop.MORE, {
+      x: full.x,
+      y: full.y,
+      w: Math.max(1, Math.round(full.w * fraction)),
+      h: full.h,
+      radius: Math.round(full.h / 2),
+      color: COLOR_ACCENT,
+    });
   },
 
   // Same warehouse, back at the start. What Sokoban needs when a crate has been
@@ -859,6 +957,13 @@ Page({
     this.clearMenu();
     this.removeCanvas();
 
+    this.state.progress = null;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === "progress") {
+        items[i].height = PROGRESS_HEIGHT;
+      }
+    }
+
     let height = 0;
     for (let i = 0; i < items.length; i++) {
       height += items[i].height;
@@ -882,6 +987,8 @@ Page({
         const box = centeredBox(SCREEN_SIZE, y, item.height, MENU_WIDTH, SCREEN_PADDING);
         if (item.kind === "button") {
           this.state.menu.push(this.createButton(box, item.text, item.onClick));
+        } else if (item.kind === "progress") {
+          this.state.menu.push(this.createProgressTrack(box));
         } else {
           this.state.menu.push(
             this.createText(box, Math.round(item.height * 0.76), item.color, item.text)
@@ -890,6 +997,33 @@ Page({
       }
       y += item.height;
     }
+  },
+
+  // A progress bar as two rectangles: the track, and the bar that grows over it.
+  createProgressTrack(box) {
+    const height = Math.max(6, Math.round(box.h * 0.5));
+    const full = { x: box.x, y: box.y + Math.round((box.h - height) / 2), w: box.w, h: height };
+
+    const track = hmUI.createWidget(hmUI.widget.FILL_RECT, {
+      x: full.x,
+      y: full.y,
+      w: full.w,
+      h: full.h,
+      radius: Math.round(full.h / 2),
+      color: COLOR_BUTTON,
+    });
+    const bar = hmUI.createWidget(hmUI.widget.FILL_RECT, {
+      x: full.x,
+      y: full.y,
+      w: 1,
+      h: full.h,
+      radius: Math.round(full.h / 2),
+      color: COLOR_ACCENT,
+    });
+
+    this.state.progress = { full, bar };
+    this.state.menu.push(track);
+    return bar;
   },
 
   createText(box, size, color, text) {
