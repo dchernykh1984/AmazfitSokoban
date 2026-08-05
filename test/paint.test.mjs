@@ -164,20 +164,40 @@ describe("the drawn controls", () => {
   const BUTTON = { x: 40, y: 400, w: 60, h: 50 };
   const WHITE = 0xffffff;
 
-  it("draws each arrow as one triangle", () => {
+  // Drawn as a chevron of two thick strokes, NOT as a polygon: `drawPoly` is
+  // accepted by the watch and then draws nothing, which is how the arrows came
+  // to be missing on a real device while every line-drawn icon showed up.
+  it("draws each arrow as two thick strokes, never a polygon", () => {
     for (const direction of [UP, RIGHT, DOWN, LEFT]) {
       const commands = paintArrow(direction, BUTTON, WHITE);
-      expect(commands.length, String(direction)).toBe(1);
-      expect(commands[0].op, String(direction)).toBe("poly");
-      expect(commands[0].points.length, String(direction)).toBe(6);
-      expect(commands[0].color, String(direction)).toBe(WHITE);
+      expect(commands.length, String(direction)).toBe(2);
+      for (const command of commands) {
+        expect(command.op, String(direction)).toBe("line");
+        expect(command.color, String(direction)).toBe(WHITE);
+        expect(command.width, String(direction)).toBeGreaterThan(2);
+      }
+    }
+  });
+
+  it("uses no primitive the watch has been seen to ignore", () => {
+    const drawable = ["rect", "ring", "disc", "line"];
+    for (const direction of [UP, RIGHT, DOWN, LEFT]) {
+      for (const command of paintArrow(direction, BUTTON, WHITE)) {
+        expect(drawable, String(direction)).toContain(command.op);
+      }
+    }
+    for (const command of paintUndoIcon(BUTTON, WHITE).concat(paintMenuIcon(BUTTON, WHITE))) {
+      expect(drawable).toContain(command.op);
     }
   });
 
   it("points each arrow the way it is named", () => {
+    // The two strokes meet at the tip, which is the point they share.
     const tip = (direction) => {
-      const points = paintArrow(direction, BUTTON, WHITE)[0].points;
-      return { x: points[0], y: points[1] };
+      const [first, second] = paintArrow(direction, BUTTON, WHITE);
+      expect(first.x2).toBe(second.x1);
+      expect(first.y2).toBe(second.y1);
+      return { x: first.x2, y: first.y2 };
     };
     const centre = { x: BUTTON.x + BUTTON.w / 2, y: BUTTON.y + BUTTON.h / 2 };
 
@@ -191,13 +211,9 @@ describe("the drawn controls", () => {
     const inside = (commands) => {
       for (const command of commands) {
         const xs =
-          command.op === "poly"
-            ? command.points.filter((_, i) => i % 2 === 0)
-            : [command.x1, command.x2];
+          command.op === "poly" ? command.points.map((point) => point.x) : [command.x1, command.x2];
         const ys =
-          command.op === "poly"
-            ? command.points.filter((_, i) => i % 2 === 1)
-            : [command.y1, command.y2];
+          command.op === "poly" ? command.points.map((point) => point.y) : [command.y1, command.y2];
         for (const x of xs) {
           expect(x).toBeGreaterThanOrEqual(BUTTON.x);
           expect(x).toBeLessThanOrEqual(BUTTON.x + BUTTON.w);
