@@ -452,10 +452,29 @@ describe("what actually ends up on the canvas", () => {
     expect(drawn.some((command) => command.op === "ring")).toBe(true);
   });
 
-  it("paints the four arrows and the two buttons", async () => {
+  it("draws an arrow in each of the four segments", async () => {
     const { watch } = await playing(3);
-    const polygons = watch.drawn().filter((command) => command.op === "poly");
-    expect(polygons.length).toBeGreaterThanOrEqual(4);
+    const layout = watch.layout();
+    const lines = watch.drawn().filter((command) => command.op === "line");
+
+    for (const key of ["up", "down", "left", "right"]) {
+      const area = layout[key];
+      const inArea = lines.filter(
+        (line) =>
+          line.x1 >= area.x &&
+          line.x1 <= area.x + area.w &&
+          line.y1 >= area.y &&
+          line.y1 <= area.y + area.h
+      );
+      expect(inArea.length, "no arrow drawn in the " + key + " segment").toBeGreaterThan(0);
+    }
+  });
+
+  // The watch accepts a polygon and then draws nothing, so the arrows must not
+  // be built from one - that is exactly how they went missing on a device.
+  it("never asks the canvas for a polygon", async () => {
+    const { watch } = await playing(3);
+    expect(watch.drawn().filter((command) => command.op === "poly").length).toBe(0);
   });
 
   it("repaints when the keeper moves", async () => {

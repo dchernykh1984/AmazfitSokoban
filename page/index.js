@@ -910,7 +910,7 @@ Page({
           color: command.color,
         });
       } else if (command.op === "line") {
-        canvas.setPaint({ color: command.color, line_width: 2 });
+        canvas.setPaint({ color: command.color, line_width: command.width || 2 });
         canvas.drawLine({
           x1: command.x1,
           y1: command.y1,
@@ -918,8 +918,6 @@ Page({
           y2: command.y2,
           color: command.color,
         });
-      } else if (command.op === "poly") {
-        canvas.drawPoly({ data_array: command.points, color: command.color });
       }
     }
   },
