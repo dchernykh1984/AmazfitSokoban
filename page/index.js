@@ -386,14 +386,18 @@ Page({
   },
 
   step(direction) {
-    if (!move(this.state.game, direction).moved) {
+    const game = this.state.game;
+    const wasPlayer = game.player;
+    const wasBoxes = game.boxes.slice();
+
+    if (!move(game, direction).moved) {
       return;
     }
     this.state.facing = direction;
-    this.lookAtKeeper();
-    this.paintBoard();
+    this.repaintAfterMove(wasPlayer, wasBoxes);
     this.paintCounter();
-    if (isSolved(this.state.game)) {
+
+    if (isSolved(game)) {
       this.showSolved();
       return;
     }
@@ -403,13 +407,18 @@ Page({
   // Undo also turns the keeper back the way the previous move left it, so the
   // figure never faces a direction the game is not in.
   undoStep() {
-    if (this.state.screen !== "playing" || !undo(this.state.game)) {
+    if (this.state.screen !== "playing") {
+      return;
+    }
+    const game = this.state.game;
+    const wasPlayer = game.player;
+    const wasBoxes = game.boxes.slice();
+    if (!undo(game)) {
       return;
     }
     const history = this.state.game.history;
     this.state.facing = history.length > 0 ? history[history.length - 1].direction : -1;
-    this.lookAtKeeper();
-    this.paintBoard();
+    this.repaintAfterMove(wasPlayer, wasBoxes);
     this.paintCounter();
     this.saveGame();
   },
@@ -435,6 +444,39 @@ Page({
   forgetSave() {
     writeText(this.state.storage, SAVE_KEY, "");
     this.state.hasSave = false;
+  },
+
+  // A step changes three cells at most - where the keeper was, where it is, and
+  // where a crate went - so repainting the whole window would be a hundred times
+  // the work for nothing. The exception is a step that scrolls the map, where
+  // everything moves and the lot has to be redrawn.
+  repaintAfterMove(wasPlayer, wasBoxes) {
+    const camera = this.state.camera;
+    const wasX = camera.x;
+    const wasY = camera.y;
+    this.lookAtKeeper();
+
+    if (camera.x !== wasX || camera.y !== wasY) {
+      this.paintBoard();
+      return;
+    }
+
+    const game = this.state.game;
+    const touched = [wasPlayer, game.player];
+    for (let i = 0; i < wasBoxes.length; i++) {
+      if (wasBoxes[i] !== game.boxes[i]) {
+        touched.push(wasBoxes[i], game.boxes[i]);
+      }
+    }
+    for (let i = 0; i < touched.length; i++) {
+      this.paintOneCell(columnOf(game, touched[i]), rowOf(game, touched[i]));
+    }
+  },
+
+  paintOneCell(column, row) {
+    const camera = this.state.camera;
+    const box = cellBox(camera, this.state.board, column, row);
+    this.runCommands(paintCell(cellKind(this.state.game, column, row), box, this.state.facing));
   },
 
   // Scroll the map only when the keeper gets close to the edge of the window, so
