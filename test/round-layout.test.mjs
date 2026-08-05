@@ -95,7 +95,7 @@ describe("the round screen", () => {
       it("keeps the in-game menu inside the bezel", async () => {
         const watch = await launch({ screen, random: seeded(7) });
         watch.press(EN.play);
-        watch.press(EN.menu);
+        watch.tapControl("menu");
         expectOnScreen(watch, screen + " menu");
         expectNoOverlap(watch, screen + " menu");
       });
