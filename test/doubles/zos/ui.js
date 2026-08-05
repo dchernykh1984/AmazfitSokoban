@@ -6,6 +6,7 @@ export const widget = {
   FILL_RECT: "FILL_RECT",
   TEXT: "TEXT",
   BUTTON: "BUTTON",
+  CANVAS: "CANVAS",
 };
 
 export const prop = {
@@ -38,6 +39,38 @@ export function createWidget(type, props) {
     type,
     props: Object.assign({}, props),
     listeners: {},
+
+    // A canvas records what it was asked to draw instead of drawing it, so a
+    // test can assert on the picture the page painted.
+    drawn: [],
+
+    drawRect(options) {
+      this.drawn.push(Object.assign({ op: "rect" }, options));
+    },
+    strokeRect(options) {
+      this.drawn.push(Object.assign({ op: "strokeRect" }, options));
+    },
+    drawCircle(options) {
+      this.drawn.push(Object.assign({ op: "disc" }, options));
+    },
+    strokeCircle(options) {
+      this.drawn.push(Object.assign({ op: "ring" }, options));
+    },
+    drawLine(options) {
+      this.drawn.push(Object.assign({ op: "line" }, options));
+    },
+    drawPoly(options) {
+      this.drawn.push(Object.assign({ op: "poly" }, options));
+    },
+    drawText(options) {
+      this.drawn.push(Object.assign({ op: "text" }, options));
+    },
+    setPaint(options) {
+      this.drawn.push(Object.assign({ op: "paint" }, options));
+    },
+    clear(options) {
+      this.drawn.push(Object.assign({ op: "clear" }, options));
+    },
 
     addEventListener(id, callback) {
       if (!this.listeners[id]) {

@@ -33,6 +33,19 @@ describe("controlLayout", () => {
     expect(layout.down.y).toBeGreaterThanOrEqual(board.y + board.size);
   });
 
+  it("puts the counters above the up arrow in the top segment", () => {
+    for (const screen of SCREENS) {
+      for (const spec of LEVELS) {
+        const { board, layout } = layoutFor(screen, spec.visible);
+        const where = screen + " " + spec.id;
+        expect(layout.counter.y, where).toBeGreaterThanOrEqual(0);
+        expect(layout.counter.y + layout.counter.h, where).toBeLessThanOrEqual(layout.up.y);
+        expect(layout.up.y + layout.up.h, where).toBeLessThanOrEqual(board.y);
+        expect(layout.counter.h, where).toBeGreaterThan(10);
+      }
+    }
+  });
+
   it("lines undo, down and menu up in the bottom segment", () => {
     const { layout } = layoutFor(466, 11);
     expect(layout.undo.y).toBe(layout.down.y);
@@ -74,7 +87,7 @@ describe("controlLayout", () => {
       for (const spec of LEVELS) {
         const { layout } = layoutFor(screen, spec.visible);
         const radius = screen / 2;
-        for (const key of ["up", "down", "left", "right", "undo", "menu"]) {
+        for (const key of ["up", "down", "left", "right", "undo", "menu", "counter"]) {
           const area = layout[key];
           const corners = [
             [area.x, area.y],

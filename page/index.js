@@ -4,12 +4,22 @@ import { onGesture, offGesture } from "@zos/interaction";
 import { setPageBrightTime, resetPageBrightTime } from "@zos/display";
 import { LocalStorage } from "@zos/storage";
 
-import { boardLayout, cellRect, insetRect } from "../lib/board.js";
+import { boardLayout } from "../lib/board.js";
+import {
+  ARROWS,
+  BOARD,
+  MENU,
+  UNDO,
+  controlLayout,
+  hitTest,
+  isDirectionHit,
+} from "../lib/controls.js";
 import { generateLevel } from "../lib/generator.js";
 import { labelFor, languageFromZeppCode } from "../lib/i18n/index.js";
 import { LEVELS, clampLevel, levelSpec, nextLevel } from "../lib/levels.js";
-import { cellKind, tileStyle } from "../lib/render.js";
-import { centeredBox, splitRow } from "../lib/round-geometry.js";
+import { COLOR_EMPTY, paintArrow, paintCell, paintMenuIcon, paintUndoIcon } from "../lib/paint.js";
+import { cellKind } from "../lib/render.js";
+import { centeredBox } from "../lib/round-geometry.js";
 import { LEVEL_KEY, bestKey, hasBest, normalizeMoves, updateBest } from "../lib/scores.js";
 import {
   boxesOnGoals,
@@ -21,27 +31,19 @@ import {
   rowOf,
   undo,
 } from "../lib/sokoban.js";
+import { beginTouch, cancelTouch, createTouch, endTouch, moveTouch } from "../lib/touch.js";
 import {
-  beginTouch,
-  cancelTouch,
-  createTouch,
-  directionToward,
-  endTouch,
-  moveTouch,
-} from "../lib/touch.js";
-import {
-  cellFromPoint,
+  cellBox,
   centerCamera,
   createCamera,
   followCamera,
   panCamera,
+  visibleCells,
 } from "../lib/viewport.js";
 import { SCREEN_SIZE } from "../utils/config/device.js";
 import {
-  BOARD_EDGE,
   BRIGHT_TIME_MS,
   BUTTON_HEIGHT_FRACTION,
-  CELL_INSET,
   COLOR_ACCENT,
   COLOR_BACKGROUND,
   COLOR_BOARD_EDGE,
@@ -58,12 +60,11 @@ import {
   TEXT_BIG_FRACTION,
   TEXT_ROW_FRACTION,
   TEXT_SMALL_FRACTION,
-  TILE_RADIUS,
 } from "../utils/config/constants.js";
 
-// One window layout per difficulty, worked out once: Easy shows seven cells
-// across, Hard eleven, so the cells are as big as that difficulty allows.
+// One window layout and one control layout per size, worked out once.
 const BOARDS = LEVELS.map((level) => boardLayout(SCREEN_SIZE, level.visible));
+const LAYOUTS = BOARDS.map((board) => controlLayout(SCREEN_SIZE, board));
 
 // The menu type scale, derived from the diameter so it holds at both round
 // resolutions and does not move when the board behind it changes size.
@@ -75,19 +76,15 @@ const STACK_GAP = Math.round(SCREEN_SIZE * STACK_GAP_FRACTION);
 const MENU_WIDTH = Math.round(SCREEN_SIZE * MENU_WIDTH_FRACTION);
 const TAP_SLOP = Math.round(SCREEN_SIZE * TAP_SLOP_FRACTION);
 
+const BOARD_EDGE_WIDTH = 3;
+
 // A widget that failed to take a setting is not worth crashing a game over, and
-// a watch that has no storage should still play - just without remembering. The
-// in-memory copy keeps the best alive for the rest of the session.
+// a watch that has no storage should still play - just without remembering.
 const memory = {};
 
-// The raw stored value, or undefined when there is nothing stored. Kept separate
-// from readNumber because "never set" and "set to zero" mean different things to
-// the difficulty level.
-//
-// The in-memory copy is consulted whenever storage has nothing to say - not only
-// when there is no storage at all. A watch whose storage reads fine but refuses
-// to write would otherwise forget the record between two screens of the same
-// session, because the value would only ever have made it as far as `memory`.
+// The in-memory copy is consulted whenever storage has nothing to say, not only
+// when there is no storage at all: a watch that reads fine but refuses to write
+// would otherwise forget the record between two screens of one session.
 function readValue(storage, key) {
   if (storage) {
     try {
@@ -125,21 +122,20 @@ Page({
     screen: "start",
     storage: null,
     destroyed: false,
-    // The puzzle and where the window is looking at it.
+    // The puzzle, where the window is looking at it, and which way the keeper
+    // last pushed - which is the direction it is drawn facing.
     game: null,
     board: BOARDS[0],
+    layout: LAYOUTS[0],
     camera: null,
+    facing: -1,
     // Input, and where the map was when the current drag started.
     touch: null,
     panFrom: { x: 0, y: 0 },
-    // Widgets, grouped by lifetime: the backdrop lives as long as the page, the
-    // frame and tiles as long as a game, and the counters, the buttons and the
-    // menu as long as a screen.
-    frame: null,
-    tiles: [],
-    painted: [],
-    hud: null,
-    buttons: [],
+    // Widgets. The whole game screen is one canvas; the menus are widgets laid
+    // over it, because a button that lights up when pressed is worth having.
+    canvas: null,
+    counter: null,
     menu: [],
   },
 
@@ -157,8 +153,6 @@ Page({
       // No storage on this device: play on, remembering only for this session.
     }
 
-    // A puzzle is stared at for minutes at a time, and a screen that blacks out
-    // mid-thought loses the position. Handed back in onDestroy.
     try {
       setPageBrightTime({ brightTime: BRIGHT_TIME_MS });
     } catch {
@@ -166,11 +160,13 @@ Page({
     }
 
     this.state.touch = createTouch(TAP_SLOP);
-    this.state.level = clampLevel(readValue(this.state.storage, LEVEL_KEY));
-    this.state.best = readNumber(this.state.storage, bestKey(this.state.level));
-    this.state.board = BOARDS[this.state.level];
+    this.state.best = readNumber(
+      this.state.storage,
+      bestKey(clampLevel(readValue(this.state.storage, LEVEL_KEY)))
+    );
+    this.useSize(readValue(this.state.storage, LEVEL_KEY));
 
-    this.drawBackdrop();
+    this.drawCanvas();
     onGesture({ callback: (gesture) => this.onGesture(gesture) });
     this.showStart();
   },
@@ -189,13 +185,20 @@ Page({
     }
   },
 
+  // The board and the controls are laid out per size, because a bigger warehouse
+  // is shown through a window of smaller cells.
+  useSize(level) {
+    this.state.level = clampLevel(level);
+    this.state.board = BOARDS[this.state.level];
+    this.state.layout = LAYOUTS[this.state.level];
+  },
+
   // ---------------------------------------------------------------- input ----
 
   // Dragging the map is a long swipe, and Zepp OS reads long swipes as system
   // gestures: right leaves the app, down and up open the system panels. Any of
   // them lands mid-puzzle and takes the position with it, so while a game is on
-  // screen every gesture is swallowed and the menu button is the way out. The
-  // menus deliberately let them through, which is how you leave.
+  // screen every gesture is swallowed and the menu button is the way out.
   onGesture() {
     if (this.state.destroyed) {
       return false;
@@ -203,22 +206,21 @@ Page({
     return this.state.screen === "playing";
   },
 
-  // The backdrop is created before anything else, so it sits under the whole
-  // screen, and it is the only widget that listens for touches: the tiles and the
-  // menus are painted over it and carry no listeners of their own, which is what
-  // keeps a drag working wherever on the board it starts.
-  drawBackdrop() {
-    const backdrop = hmUI.createWidget(hmUI.widget.FILL_RECT, {
+  // The canvas is the whole screen: it draws the board and the controls, and it
+  // is what every touch lands on. Menus are widgets created after it, so they
+  // sit on top and take their own taps.
+  drawCanvas() {
+    const canvas = hmUI.createWidget(hmUI.widget.CANVAS, {
       x: 0,
       y: 0,
       w: SCREEN_SIZE,
       h: SCREEN_SIZE,
-      color: COLOR_BACKGROUND,
     });
-    backdrop.addEventListener(hmUI.event.CLICK_DOWN, (info) => this.onTouchDown(info));
-    backdrop.addEventListener(hmUI.event.MOVE, (info) => this.onTouchMove(info));
-    backdrop.addEventListener(hmUI.event.CLICK_UP, (info) => this.onTouchUp(info));
-    backdrop.addEventListener(hmUI.event.MOVE_OUT, () => cancelTouch(this.state.touch));
+    canvas.addEventListener(hmUI.event.CLICK_DOWN, (info) => this.onTouchDown(info));
+    canvas.addEventListener(hmUI.event.MOVE, (info) => this.onTouchMove(info));
+    canvas.addEventListener(hmUI.event.CLICK_UP, (info) => this.onTouchUp(info));
+    canvas.addEventListener(hmUI.event.MOVE_OUT, () => cancelTouch(this.state.touch));
+    this.state.canvas = canvas;
   },
 
   onTouchDown(info) {
@@ -229,6 +231,8 @@ Page({
     this.state.panFrom = { x: this.state.camera.x, y: this.state.camera.y };
   },
 
+  // Only a drag that STARTED on the board pans the map: a finger sliding off an
+  // arrow must not drag the warehouse out from under it.
   onTouchMove(info) {
     if (this.state.destroyed || this.state.screen !== "playing") {
       return;
@@ -237,22 +241,21 @@ Page({
     if (!moved.dragging) {
       return;
     }
-    // The map moves in whole cells, so most of the move events a drag produces
-    // land the window exactly where it already was. Repainting only when the
-    // window has actually moved keeps a drag from burning a hundred cell lookups
-    // per event for nothing.
+    if (hitTest(this.state.layout, this.state.touch.startX, this.state.touch.startY) !== BOARD) {
+      return;
+    }
+
     const camera = this.state.camera;
     const wasX = camera.x;
     const wasY = camera.y;
-    panCamera(camera, this.state.panFrom, moved.dx, moved.dy, this.state.board.cell);
+    panCamera(camera, this.state.panFrom, moved.dx, moved.dy);
     if (camera.x !== wasX || camera.y !== wasY) {
       this.paintBoard();
     }
   },
 
-  // A tap steps the keeper towards the cell it landed on. Taps outside the board
-  // - on the buttons in the caps above and below it - map to no cell and are left
-  // to the buttons themselves.
+  // A tap acts on whatever control it landed on. A drag never acts at all - it
+  // has already moved the map.
   onTouchUp(info) {
     if (this.state.destroyed || this.state.screen !== "playing") {
       return;
@@ -261,19 +264,14 @@ Page({
     if (!end.tap) {
       return;
     }
-    const cell = cellFromPoint(this.state.camera, this.state.board, end.x, end.y);
-    if (cell === null) {
-      return;
-    }
-    const game = this.state.game;
-    const direction = directionToward(
-      columnOf(game, game.player),
-      rowOf(game, game.player),
-      cell.x,
-      cell.y
-    );
-    if (direction !== -1) {
-      this.step(direction);
+
+    const hit = hitTest(this.state.layout, end.x, end.y);
+    if (isDirectionHit(hit)) {
+      this.step(hit);
+    } else if (hit === UNDO) {
+      this.undoStep();
+    } else if (hit === MENU) {
+      this.showMenu();
     }
   },
 
@@ -281,21 +279,26 @@ Page({
     if (!move(this.state.game, direction).moved) {
       return;
     }
+    this.state.facing = direction;
     this.lookAtKeeper();
     this.paintBoard();
-    this.paintHud();
+    this.paintCounter();
     if (isSolved(this.state.game)) {
       this.showSolved();
     }
   },
 
+  // Undo also turns the keeper back the way the previous move left it, so the
+  // figure never faces a direction the game is not in.
   undoStep() {
     if (this.state.screen !== "playing" || !undo(this.state.game)) {
       return;
     }
+    const history = this.state.game.history;
+    this.state.facing = history.length > 0 ? history[history.length - 1].direction : -1;
     this.lookAtKeeper();
     this.paintBoard();
-    this.paintHud();
+    this.paintCounter();
   },
 
   // Scroll the map only when the keeper gets close to the edge of the window, so
@@ -315,8 +318,8 @@ Page({
   showStart() {
     this.state.screen = "start";
     this.state.game = null;
-    this.clearHud();
-    this.clearTiles();
+    this.clearCounter();
+    this.paintBackground();
 
     const spec = levelSpec(this.state.level);
     const best = this.state.best;
@@ -335,7 +338,7 @@ Page({
         kind: "button",
         height: BUTTON_HEIGHT,
         text: this.text(spec.label),
-        onClick: () => this.cycleLevel(),
+        onClick: () => this.cycleSize(),
       },
       { kind: "gap", height: STACK_GAP },
       {
@@ -344,25 +347,18 @@ Page({
         text: this.text("play"),
         onClick: () => this.startGame(),
       },
-      { kind: "gap", height: STACK_GAP },
-      { kind: "text", height: TEXT_SMALL, color: COLOR_MUTED, text: this.text("hint_move") },
-      { kind: "text", height: TEXT_SMALL, color: COLOR_MUTED, text: this.text("hint_pan") },
     ]);
   },
 
-  // Walk to the next difficulty and remember it, so the game reopens the way it
-  // was left. Each difficulty keeps its own best, so that is reloaded too.
-  cycleLevel() {
-    this.state.level = nextLevel(this.state.level);
+  // Walk to the next size and remember it, so the game reopens the way it was
+  // left. Each size keeps its own best, so that is reloaded too.
+  cycleSize() {
+    this.useSize(nextLevel(this.state.level));
     writeNumber(this.state.storage, LEVEL_KEY, this.state.level);
     this.state.best = readNumber(this.state.storage, bestKey(this.state.level));
-    this.state.board = BOARDS[this.state.level];
     this.showStart();
   },
 
-  // A fresh random warehouse at the current difficulty. Generation is built to
-  // always succeed, but it is allowed to give up rather than hang, so a failure
-  // leaves the start screen up instead of an empty board.
   startGame() {
     const spec = levelSpec(this.state.level);
     const level = generateLevel(spec, Math.random);
@@ -372,9 +368,9 @@ Page({
 
     this.clearMenu();
     this.state.screen = "playing";
-    this.state.board = BOARDS[this.state.level];
     this.state.game = createGame(level);
-    this.state.camera = createCamera(level.cols, level.rows, spec.visible);
+    this.state.facing = -1;
+    this.state.camera = createCamera(level.cols, level.rows, spec.visible, this.state.board.cell);
     centerCamera(
       this.state.camera,
       columnOf(this.state.game, level.player),
@@ -382,26 +378,25 @@ Page({
     );
     cancelTouch(this.state.touch);
 
-    this.buildTiles();
     this.paintBoard();
-    this.paintHud();
-    this.showPlayButtons();
+    this.paintControls();
+    this.paintCounter();
   },
 
-  // Same warehouse, back at the start. What Sokoban needs when a box has been
+  // Same warehouse, back at the start. What Sokoban needs when a crate has been
   // pushed into a corner and undo is too far back to be worth it.
   restartGame() {
     if (this.state.game === null) {
       return;
     }
     restart(this.state.game);
+    this.state.facing = -1;
     centerCamera(
       this.state.camera,
       columnOf(this.state.game, this.state.game.player),
       rowOf(this.state.game, this.state.game.player)
     );
     this.resumeGame();
-    this.paintBoard();
   },
 
   showMenu() {
@@ -409,7 +404,7 @@ Page({
       return;
     }
     this.state.screen = "menu";
-    this.clearHud();
+    this.clearCounter();
     this.drawMenu([
       {
         kind: "button",
@@ -448,15 +443,16 @@ Page({
     this.clearMenu();
     this.state.screen = "playing";
     cancelTouch(this.state.touch);
-    this.paintHud();
-    this.showPlayButtons();
+    this.paintBoard();
+    this.paintControls();
+    this.paintCounter();
   },
 
   // The solved warehouse stays on screen under the panel, because seeing where
   // the last crate went is half the reward.
   showSolved() {
     this.state.screen = "solved";
-    this.clearHud();
+    this.clearCounter();
 
     const moves = this.state.game.moves;
     const result = updateBest(this.state.best, moves);
@@ -468,12 +464,7 @@ Page({
     this.drawMenu([
       { kind: "text", height: TEXT_BIG, color: COLOR_ACCENT, text: this.text("solved") },
       { kind: "gap", height: STACK_GAP },
-      {
-        kind: "text",
-        height: TEXT_ROW,
-        color: COLOR_TEXT,
-        text: this.text("moves") + " " + moves,
-      },
+      { kind: "text", height: TEXT_ROW, color: COLOR_TEXT, text: this.text("moves") + " " + moves },
       {
         kind: "text",
         height: TEXT_ROW,
@@ -499,49 +490,62 @@ Page({
 
   // ---------------------------------------------------------------- drawing ----
 
-  // One widget pair per window slot, created once per game and then only ever
-  // recoloured. Panning a map by rebuilding a hundred widgets per frame would
-  // never keep up with a finger; moving the window over a fixed grid does.
-  buildTiles() {
-    this.clearTiles();
-    const board = this.state.board;
-
-    this.state.frame = hmUI.createWidget(hmUI.widget.FILL_RECT, {
-      x: board.x - BOARD_EDGE,
-      y: board.y - BOARD_EDGE,
-      w: board.size + 2 * BOARD_EDGE,
-      h: board.size + 2 * BOARD_EDGE,
-      radius: BOARD_EDGE * 3,
-      color: COLOR_BOARD_EDGE,
-    });
-
-    for (let row = 0; row < board.cells; row++) {
-      for (let column = 0; column < board.cells; column++) {
-        const tile = cellRect(board, column, row, CELL_INSET);
-        const base = hmUI.createWidget(hmUI.widget.FILL_RECT, {
-          x: tile.x,
-          y: tile.y,
-          w: tile.w,
-          h: tile.h,
-          radius: TILE_RADIUS,
-          color: COLOR_BACKGROUND,
+  // Run the primitives a lib/paint function produced. The page knows these five
+  // shapes and nothing else about how the game looks.
+  runCommands(commands) {
+    const canvas = this.state.canvas;
+    if (!canvas) {
+      return;
+    }
+    for (let i = 0; i < commands.length; i++) {
+      const command = commands[i];
+      if (command.op === "rect") {
+        canvas.drawRect({
+          x1: command.x1,
+          y1: command.y1,
+          x2: command.x2,
+          y2: command.y2,
+          color: command.color,
         });
-        const top = hmUI.createWidget(hmUI.widget.FILL_RECT, {
-          x: tile.x,
-          y: tile.y,
-          w: tile.w,
-          h: tile.h,
-          radius: TILE_RADIUS,
-          color: COLOR_BACKGROUND,
+      } else if (command.op === "disc") {
+        canvas.drawCircle({
+          center_x: command.x,
+          center_y: command.y,
+          radius: command.radius,
+          color: command.color,
         });
-        this.state.tiles.push({ base, top, box: tile, column, row });
-        this.state.painted.push(null);
+      } else if (command.op === "ring") {
+        canvas.setPaint({ color: command.color, line_width: command.width });
+        canvas.strokeCircle({
+          center_x: command.x,
+          center_y: command.y,
+          radius: command.radius,
+          color: command.color,
+        });
+      } else if (command.op === "line") {
+        canvas.setPaint({ color: command.color, line_width: 2 });
+        canvas.drawLine({
+          x1: command.x1,
+          y1: command.y1,
+          x2: command.x2,
+          y2: command.y2,
+          color: command.color,
+        });
+      } else if (command.op === "poly") {
+        canvas.drawPoly({ data_array: command.points, color: command.color });
       }
     }
   },
 
-  // Repaint only the slots whose contents changed. A step changes three or four
-  // of them; a drag of the map changes a stripe down one side.
+  paintBackground() {
+    this.runCommands([
+      { op: "rect", x1: 0, y1: 0, x2: SCREEN_SIZE, y2: SCREEN_SIZE, color: COLOR_EMPTY },
+    ]);
+  },
+
+  // The warehouse, drawn cell by cell through the window. Only the cells the
+  // camera can see are drawn, and the offset is in pixels, so the map slides
+  // under the finger rather than jumping a whole cell at a time.
   paintBoard() {
     const game = this.state.game;
     const camera = this.state.camera;
@@ -550,92 +554,71 @@ Page({
       return;
     }
 
-    for (let i = 0; i < this.state.tiles.length; i++) {
-      const tile = this.state.tiles[i];
-      const kind = cellKind(game, camera.x + tile.column, camera.y + tile.row);
-      if (this.state.painted[i] === kind) {
-        continue;
+    this.paintBackground();
+    this.runCommands([
+      {
+        op: "rect",
+        x1: board.x - BOARD_EDGE_WIDTH,
+        y1: board.y - BOARD_EDGE_WIDTH,
+        x2: board.x + board.size + BOARD_EDGE_WIDTH,
+        y2: board.y + board.size + BOARD_EDGE_WIDTH,
+        color: COLOR_BOARD_EDGE,
+      },
+    ]);
+
+    const range = visibleCells(camera);
+    for (let row = range.fromY; row <= range.toY; row++) {
+      for (let column = range.fromX; column <= range.toX; column++) {
+        const box = cellBox(camera, board, column, row);
+        this.runCommands(paintCell(cellKind(game, column, row), box, this.state.facing));
       }
-      this.state.painted[i] = kind;
-
-      const style = tileStyle(kind);
-      tile.base.setProperty(hmUI.prop.MORE, {
-        x: tile.box.x,
-        y: tile.box.y,
-        w: tile.box.w,
-        h: tile.box.h,
-        radius: TILE_RADIUS,
-        color: style.base,
-      });
-
-      const top = insetRect(board, tile.column, tile.row, style.inset, CELL_INSET);
-      tile.top.setProperty(hmUI.prop.MORE, {
-        x: top.x,
-        y: top.y,
-        w: top.w,
-        h: top.h,
-        radius: style.round ? Math.floor(top.w / 2) : TILE_RADIUS,
-        color: style.top,
-      });
     }
+
+    this.paintControls();
   },
 
-  // The counters in the cap above the board: crates home out of the total, and
-  // how many moves that has taken.
-  // The widget is created once per game and then only ever re-lettered: a step
-  // changes the counters, and deleting and rebuilding a widget on every step is
-  // far more work than handing it a new string.
-  paintHud() {
+  // The arrows and the two buttons, drawn after the board so a cell that hangs
+  // over the edge of the window cannot paint over them.
+  paintControls() {
+    const layout = this.state.layout;
+    for (let i = 0; i < ARROWS.length; i++) {
+      const arrow = ARROWS[i];
+      this.runCommands(paintArrow(arrow.direction, layout[arrow.key], COLOR_TEXT));
+    }
+    this.runCommands(paintUndoIcon(layout.undo, COLOR_TEXT));
+    this.runCommands(paintMenuIcon(layout.menu, COLOR_TEXT));
+  },
+
+  // Crates home out of the total, and how many moves that has taken. A widget
+  // rather than canvas text, because it is re-lettered on every step and a
+  // widget can be handed a new string without repainting anything.
+  paintCounter() {
     const game = this.state.game;
     if (game === null) {
       return;
     }
-
     const text = boxesOnGoals(game) + "/" + game.goals.length + "   " + game.moves;
-    if (this.state.hud) {
-      this.state.hud.setProperty(hmUI.prop.MORE, { text });
+
+    if (this.state.counter) {
+      this.state.counter.setProperty(hmUI.prop.MORE, { text });
       return;
     }
 
-    const board = this.state.board;
-    const height = Math.round(board.y * 0.5);
-    const box = centeredBox(
-      SCREEN_SIZE,
-      Math.round(board.y * 0.28),
-      height,
-      board.size,
-      SCREEN_PADDING
-    );
-    this.state.hud = this.createText(box, Math.round(height * 0.74), COLOR_TEXT, text);
+    const area = this.state.layout.counter;
+    this.state.counter = this.createText(area, Math.round(area.h * 0.86), COLOR_TEXT, text);
   },
 
-  // Undo and Menu, side by side in the cap below the board. They exist only while
-  // a game is actually running, so they cannot be tapped through a menu that is
-  // covering them.
-  showPlayButtons() {
-    this.clearButtons();
-    const board = this.state.board;
-    const bottom = board.y + board.size;
-    const cap = SCREEN_SIZE - bottom;
-    const height = Math.round(cap * 0.62);
-    const row = centeredBox(
-      SCREEN_SIZE,
-      bottom + Math.round(cap * 0.12),
-      height,
-      MENU_WIDTH,
-      SCREEN_PADDING
-    );
-
-    const boxes = splitRow(row, 2, STACK_GAP);
-    this.state.buttons.push(this.createButton(boxes[0], this.text("undo"), () => this.undoStep()));
-    this.state.buttons.push(this.createButton(boxes[1], this.text("menu"), () => this.showMenu()));
+  clearCounter() {
+    if (this.state.counter) {
+      hmUI.deleteWidget(this.state.counter);
+      this.state.counter = null;
+    }
   },
 
   // A vertical stack of texts and buttons, centred on the screen over a scrim so
   // it stays readable on top of a half-solved warehouse.
   drawMenu(items) {
     this.clearMenu();
-    this.clearButtons();
 
     let height = 0;
     for (let i = 0; i < items.length; i++) {
@@ -699,39 +682,6 @@ Page({
       text,
       click_func: onClick,
     });
-  },
-
-  // ---------------------------------------------------------------- teardown ----
-
-  clearTiles() {
-    for (let i = 0; i < this.state.tiles.length; i++) {
-      hmUI.deleteWidget(this.state.tiles[i].base);
-      hmUI.deleteWidget(this.state.tiles[i].top);
-    }
-    this.state.tiles = [];
-    this.state.painted = [];
-    if (this.state.frame) {
-      hmUI.deleteWidget(this.state.frame);
-      this.state.frame = null;
-    }
-  },
-
-  // Take the counters and the play buttons off the screen. Called whenever a menu
-  // opens over the board, so nothing of the game's own furniture is left showing
-  // through - or tappable - underneath it.
-  clearHud() {
-    if (this.state.hud) {
-      hmUI.deleteWidget(this.state.hud);
-      this.state.hud = null;
-    }
-    this.clearButtons();
-  },
-
-  clearButtons() {
-    for (let i = 0; i < this.state.buttons.length; i++) {
-      hmUI.deleteWidget(this.state.buttons[i]);
-    }
-    this.state.buttons = [];
   },
 
   clearMenu() {

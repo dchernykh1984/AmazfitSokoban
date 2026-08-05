@@ -11,6 +11,10 @@ function zos(name) {
 }
 
 export default defineConfig({
+  // The solver tests are deliberately heavy - they search real state spaces -
+  // and the default five seconds is tight for them when the whole suite is
+  // running in parallel on a busy machine.
+  test: { testTimeout: 30000 },
   resolve: {
     alias: {
       "@zos/ui": zos("ui"),

@@ -77,9 +77,34 @@ export async function launch(options) {
       return this;
     },
 
-    // The full-screen rectangle the page hangs its touch listeners on.
+    // The canvas the page draws on and hangs its touch listeners on.
     backdrop() {
       return zos.ui.widgets.find((created) => created.listeners[zos.ui.event.CLICK_DOWN]);
+    },
+
+    canvas() {
+      return this.backdrop();
+    },
+
+    // Everything the page has drawn since the last clear.
+    drawn() {
+      const canvas = this.canvas();
+      return canvas ? canvas.drawn : [];
+    },
+
+    // Where the controls are, straight from the page.
+    layout() {
+      return page.state.layout;
+    },
+
+    // Tap the middle of a named control: "up", "down", "left", "right",
+    // "undo" or "menu".
+    tapControl(name) {
+      const area = page.state.layout[name];
+      if (!area) {
+        throw new Error("no control called " + name);
+      }
+      return this.tap(area.x + Math.floor(area.w / 2), area.y + Math.floor(area.h / 2));
     },
 
     // ---- touching it ----
@@ -120,14 +145,14 @@ export async function launch(options) {
     },
 
     // The middle of a board cell, in screen pixels, as the window is looking at
-    // the warehouse right now.
+    // the warehouse right now. The camera offset is in pixels.
     cellCenter(column, row) {
       const board = page.state.board;
       const camera = page.state.camera;
-      const half = Math.floor(board.cell / 2);
+      const half = Math.floor(camera.cell / 2);
       return {
-        x: board.x + (column - camera.x) * board.cell + half,
-        y: board.y + (row - camera.y) * board.cell + half,
+        x: board.x + column * camera.cell - camera.x + half,
+        y: board.y + row * camera.cell - camera.y + half,
       };
     },
   };
