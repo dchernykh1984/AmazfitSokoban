@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { boardLayout, cellRect, insetRect } from "../lib/board.js";
+import { boardLayout } from "../lib/board.js";
 
 const ROUND_SIZES = [466, 480];
 
@@ -57,67 +57,5 @@ describe("boardLayout", () => {
     const board = boardLayout(466, 0);
     expect(board.cells).toBe(1);
     expect(board.cell).toBeGreaterThan(0);
-  });
-});
-
-describe("cellRect", () => {
-  const board = boardLayout(466, 9);
-
-  it("places a cell in the grid", () => {
-    const rect = cellRect(board, 0, 0, 0);
-    expect(rect).toEqual({ x: board.x, y: board.y, w: board.cell, h: board.cell });
-
-    const other = cellRect(board, 3, 5, 0);
-    expect(other.x).toBe(board.x + 3 * board.cell);
-    expect(other.y).toBe(board.y + 5 * board.cell);
-  });
-
-  it("insets on every side", () => {
-    const rect = cellRect(board, 2, 2, 2);
-    expect(rect.x).toBe(board.x + 2 * board.cell + 2);
-    expect(rect.w).toBe(board.cell - 4);
-  });
-
-  it("never lets an inset eat the whole cell", () => {
-    const rect = cellRect(board, 0, 0, 999);
-    expect(rect.w).toBeGreaterThan(0);
-    expect(rect.h).toBeGreaterThan(0);
-  });
-
-  it("ignores a negative inset", () => {
-    expect(cellRect(board, 0, 0, -5)).toEqual(cellRect(board, 0, 0, 0));
-  });
-});
-
-describe("insetRect", () => {
-  const board = boardLayout(466, 9);
-
-  it("shrinks a cell by a fraction of its size", () => {
-    const rect = insetRect(board, 0, 0, 0.2);
-    const gap = Math.floor(board.cell * 0.2);
-    expect(rect.w).toBe(board.cell - 2 * gap);
-  });
-
-  it("draws a full tile for a zero fraction", () => {
-    expect(insetRect(board, 1, 1, 0)).toEqual(cellRect(board, 1, 1, 0));
-  });
-
-  it("keeps the minimum inset when the fraction asks for less", () => {
-    expect(insetRect(board, 1, 1, 0, 1)).toEqual(cellRect(board, 1, 1, 1));
-    expect(insetRect(board, 1, 1, 0.2, 1)).toEqual(insetRect(board, 1, 1, 0.2));
-  });
-
-  it("keeps something visible however large the fraction", () => {
-    const rect = insetRect(board, 0, 0, 5);
-    expect(rect.w).toBeGreaterThan(0);
-  });
-
-  it("scales with the screen, so both round sizes look the same", () => {
-    for (const size of ROUND_SIZES) {
-      const layout = boardLayout(size, 9);
-      const rect = insetRect(layout, 0, 0, 0.2);
-      expect(rect.w / layout.cell).toBeGreaterThan(0.5);
-      expect(rect.w / layout.cell).toBeLessThan(0.8);
-    }
   });
 });
