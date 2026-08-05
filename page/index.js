@@ -302,7 +302,9 @@ Page({
     if (this.state.destroyed) {
       return false;
     }
-    return this.state.screen === "playing";
+    // Also swallowed while a warehouse is being generated: a stray swipe there
+    // would leave the app half way through building a level.
+    return this.state.screen === "playing" || this.state.screen === "generating";
   },
 
   // The canvas is the whole screen: it draws the board and the controls, and it
@@ -652,7 +654,6 @@ Page({
     cancelTouch(this.state.touch);
 
     this.paintBoard();
-    this.paintControls();
     this.paintCounter();
     this.saveGame();
   },
@@ -778,7 +779,6 @@ Page({
     this.state.screen = "playing";
     cancelTouch(this.state.touch);
     this.paintBoard();
-    this.paintControls();
     this.paintCounter();
   },
 

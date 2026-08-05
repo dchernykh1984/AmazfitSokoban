@@ -282,6 +282,16 @@ describe("the swipe that leaves the app", () => {
     expect(watch.swipe(3)).toBe(false);
   });
 
+  // A swipe while a warehouse is being built would abandon the app half way
+  // through the work.
+  it("is swallowed while a warehouse is being generated", async () => {
+    const watch = await launch({ random: seeded(4) });
+    watch.press(EN.source_builtin);
+    watch.press(EN.play);
+    expect(watch.page.state.screen).toBe("generating");
+    expect(watch.swipe(3)).toBe(true);
+  });
+
   it("is let through by a page that has been destroyed", async () => {
     const { watch } = await playing(3);
     const callback = watch.zos.interaction.gestures.callback;
