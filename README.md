@@ -80,16 +80,34 @@ node scripts/validate-maps.mjs --deep --sizes m,l
 node scripts/solve-map.mjs xs 12          # draw one warehouse and solve it
 ```
 
-| Script              | What it does                                                                                                                                                                                                     |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `generate-maps.mjs` | Builds `maps/<size>.sok`. Splits the work across every core, one child process per shard, and merges, de-duplicates and trims the result. Deterministic: same `--seed` and `--jobs`, same collection.            |
-| `pack-maps.mjs`     | Turns `maps/*.sok` into `assets/common.r/levels.bin`. Runs automatically before `dev`, `preview` and `build`.                                                                                                    |
-| `validate-maps.mjs` | Puts every warehouse through the real rule set and the real solver: size, crate count, connected floor, no crate starting on a goal, actually solvable, not trivially easy. Exits non-zero if anything is wrong. |
-| `solve-map.mjs`     | Draws a single warehouse and solves it - for when a level looks odd and you want the solver's opinion.                                                                                                           |
+| Script              | What it does                                                                                                                                                                                                                                                                     |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `generate-maps.mjs` | Builds `maps/<size>.sok`. Splits the work across every core, one child process per shard, and merges, de-duplicates and trims the result. Deterministic: same `--seed` and `--jobs`, same collection.                                                                            |
+| `pack-maps.mjs`     | Turns `maps/*.sok` into `assets/common.r/levels.bin`. Runs automatically before `dev`, `preview` and `build`.                                                                                                                                                                    |
+| `validate-maps.mjs` | Puts every warehouse through the real rule set, the real solver and the quality bars: size, crate count, connected floor, no crate starting on a goal, actually solvable, not trivially easy, no dead half of the map, no walled-in keeper. Exits non-zero if anything is wrong. |
+| `solve-map.mjs`     | Draws a single warehouse and solves it - for when a level looks odd and you want the solver's opinion.                                                                                                                                                                           |
 
 The text in `maps/` is the source of truth and is committed, so a change to the
 collection shows up as a readable diff. The packed binary is a build artefact and
 is git-ignored.
+
+**What a level has to clear to ship.** Being solvable is not enough - the
+generator guarantees that by construction. A warehouse is thrown away unless it
+also passes, in rising order of cost (`lib/quality.js`, `lib/collection.js`):
+
+- **no dead half** - the largest block of floor holding neither crate nor goal
+  must stay under a fifth to a quarter of the map, or the player pans through
+  empty rooms for nothing;
+- **not shallow** - pairing each crate with a goal the cheapest way must still
+  cost a real number of pushes, or the puzzle is just N crates already sitting
+  next to N goals;
+- **a keeper that can move** - it must be able to reach half the floor before
+  touching anything, or its opening move is a forced push and no decision at all;
+- **not trivially easy** - the solver has to need more than a handful of pushes,
+  where the solver can finish at all.
+
+Those first three came out of reading a sample of the collection by hand: every
+level was correct, and some were still poor puzzles.
 
 `preview` and `build` fetch the [Zeus CLI](https://docs.zepp.com/docs/guides/quick-start/)
 on demand (`npx`), so it is not tracked as a dependency; the first run downloads it.
