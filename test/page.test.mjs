@@ -372,7 +372,8 @@ describe("the in-game menu", () => {
     const { watch } = await playing(3);
     watch.tapControl("menu");
     watch.press(EN.size);
-    expect(watch.buttons()).toEqual([EN.size_xs, EN.source_builtin, EN.play]);
+    // The unfinished warehouse is offered back, ahead of starting a new one.
+    expect(watch.buttons()).toEqual([EN.size_xs, EN.source_builtin, EN.continue, EN.play]);
     expect(watch.page.state.game).toBeNull();
   });
 });

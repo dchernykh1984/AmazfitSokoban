@@ -29,8 +29,16 @@ import {
   pickUnplayed,
   progressKey,
 } from "../lib/progress.js";
+import { SAVE_KEY, decodeSave, encodeSave } from "../lib/save.js";
 import { LEVEL_KEY, bestKey, hasBest, normalizeMoves, updateBest } from "../lib/scores.js";
-import { BUILT_IN, SOURCE_KEY, clampSource, nextSource, sourceLabel } from "../lib/sources.js";
+import {
+  BUILT_IN,
+  SOURCES,
+  SOURCE_KEY,
+  clampSource,
+  nextSource,
+  sourceLabel,
+} from "../lib/sources.js";
 import {
   boxesOnGoals,
   columnOf,
@@ -183,6 +191,8 @@ Page({
     // finished puzzle can be struck off the list.
     collection: null,
     dealt: -1,
+    // A game left unfinished last time, if there is one.
+    saved: null,
     screen: "start",
     storage: null,
     destroyed: false,
@@ -231,6 +241,7 @@ Page({
     // The section table is the only part of the collection ever held in memory;
     // a level is read straight out of the file when a game starts.
     this.state.collection = openCollection(assetReader);
+    this.state.saved = decodeSave(readText(this.state.storage, SAVE_KEY));
 
     this.drawCanvas();
     onGesture({ callback: (gesture) => this.onGesture(gesture) });
@@ -359,7 +370,9 @@ Page({
     this.paintCounter();
     if (isSolved(this.state.game)) {
       this.showSolved();
+      return;
     }
+    this.saveGame();
   },
 
   // Undo also turns the keeper back the way the previous move left it, so the
@@ -373,6 +386,26 @@ Page({
     this.lookAtKeeper();
     this.paintBoard();
     this.paintCounter();
+    this.saveGame();
+  },
+
+  // Written after every move rather than on the way out: a watch can kill an app
+  // without ever calling onDestroy, and a position lost that way is exactly the
+  // one worth keeping.
+  saveGame() {
+    if (this.state.game === null) {
+      return;
+    }
+    const source = SOURCES.indexOf(this.state.source);
+    const text = encodeSave(this.state.level, source < 0 ? 0 : source, this.state.game);
+    writeText(this.state.storage, SAVE_KEY, text);
+    this.state.saved = decodeSave(text);
+  },
+
+  // A finished warehouse is not worth coming back to.
+  forgetSave() {
+    writeText(this.state.storage, SAVE_KEY, "");
+    this.state.saved = null;
   },
 
   // Scroll the map only when the keeper gets close to the edge of the window, so
@@ -396,7 +429,7 @@ Page({
 
     const spec = levelSpec(this.state.level);
     const best = this.state.best;
-    this.drawMenu([
+    const items = [
       { kind: "text", height: TEXT_BIG, color: COLOR_TEXT, text: this.text("title") },
       { kind: "gap", height: STACK_GAP },
       {
@@ -428,7 +461,59 @@ Page({
         text: this.text("play"),
         onClick: () => this.startGame(),
       },
-    ]);
+    ];
+
+    // A warehouse left unfinished is the first thing offered: the big sizes take
+    // more than one sitting, and losing that position would be the whole point
+    // of saving it.
+    if (this.state.saved) {
+      items.splice(items.length - 1, 0, {
+        kind: "button",
+        height: BUTTON_HEIGHT,
+        text: this.text("continue"),
+        onClick: () => this.resumeSaved(),
+      });
+      items.splice(items.length - 1, 0, { kind: "gap", height: STACK_GAP });
+    }
+
+    this.drawMenu(items);
+  },
+
+  // Pick the unfinished warehouse back up exactly where it was left.
+  resumeSaved() {
+    const saved = this.state.saved;
+    if (!saved) {
+      return;
+    }
+
+    this.useSize(saved.level);
+    this.state.source = clampSource(SOURCES[saved.source]);
+    this.state.best = readNumber(this.state.storage, this.bestKeyNow());
+    this.state.dealt = -1;
+
+    this.clearMenu();
+    this.drawCanvas();
+    this.state.screen = "playing";
+    this.state.game = saved.game;
+    this.state.facing =
+      saved.game.history.length > 0
+        ? saved.game.history[saved.game.history.length - 1].direction
+        : -1;
+    this.state.camera = createCamera(
+      saved.game.cols,
+      saved.game.rows,
+      levelSpec(this.state.level).visible,
+      this.state.board.cell
+    );
+    centerCamera(
+      this.state.camera,
+      columnOf(saved.game, saved.game.player),
+      rowOf(saved.game, saved.game.player)
+    );
+    cancelTouch(this.state.touch);
+
+    this.paintBoard();
+    this.paintCounter();
   },
 
   // The record is kept per size AND per source: a level the watch rolled is not
@@ -530,6 +615,7 @@ Page({
     this.paintBoard();
     this.paintControls();
     this.paintCounter();
+    this.saveGame();
   },
 
   // Same warehouse, back at the start. What Sokoban needs when a crate has been
@@ -611,6 +697,7 @@ Page({
       writeNumber(this.state.storage, this.bestKeyNow(), result.best);
     }
     this.markDealtSolved();
+    this.forgetSave();
 
     this.drawMenu([
       { kind: "text", height: TEXT_BIG, color: COLOR_ACCENT, text: this.text("solved") },
