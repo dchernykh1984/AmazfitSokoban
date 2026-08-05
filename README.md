@@ -6,23 +6,31 @@ you, never towards you, so a crate shoved into a corner is lost. Every level is
 generated on the watch, and every one of them can be finished. No phone, no
 network, no account.
 
-- **Controls** - **tap** anywhere on the board to take one step towards the cell
-  you touched, and **drag** the board to move the map around, the way a navigator
-  pans. The two never collide: once your finger has travelled further than a
-  fingertip the touch is a drag and will not also step. **Undo** takes back the
-  last step, crate and all.
-- **Difficulty** - Easy (7x7, two crates), Normal (10x10, three) or Hard (13x13,
-  four), picked on the start screen. Easy fits on the screen whole; from Normal
-  upwards the warehouse is bigger than the window and the map has to be dragged.
-  Whichever difficulty you played last is the one that opens next time.
-- **Random, but always solvable** - levels are never scrambled at random, because
-  most random Sokoban positions are dead on arrival. The generator starts from a
-  _solved_ warehouse and walks the game backwards, **pulling** crates off their
-  goals. A pull is the exact inverse of a push, so replaying the pulls in reverse
-  is a solution - one that comes with the level and that the unit tests replay for
-  every difficulty on every seed.
-- **Best score** - the fewest moves you have solved that difficulty in, kept in
-  on-watch storage. Sokoban scores the other way round from most games: less wins.
+- **Controls** - four **arrows** in the segments around the board move the
+  keeper one cell; **dragging the board** pans the map, pixel for pixel, the way
+  a navigator does. The two never collide, because they live in different places
+  on the screen. **Undo** takes back the last step, crate and all.
+- **Sizes** - XS (9x9, two crates) through XXL (19x19, seven). XS and S fit on
+  the screen whole; from M upwards the warehouse is bigger than the window and
+  the map has to be dragged. Whichever size you played last is the one that
+  opens next time.
+- **Where the levels come from** - **Built-in**, from a collection of 4000
+  warehouses generated on a computer and put through a real solver, so none of
+  them is trivially easy; or **Random**, generated on the watch behind a progress
+  bar. Each warehouse is dealt once before any is repeated, and when the whole
+  collection has been played the slate is wiped.
+- **Always solvable** - levels are never scrambled at random, because most random
+  Sokoban positions are dead on arrival. The generator starts from a _solved_
+  warehouse and walks the game backwards, **pulling** crates off their goals. A
+  pull is the exact inverse of a push, so replaying the pulls in reverse is a
+  solution - and every shipped level has had that solution replayed through the
+  real rule set before it was written to disk.
+- **Pick it up later** - the position is saved after every move, so a 19x19
+  warehouse can be finished over several sittings. The whole board is saved, not
+  a level number, so a future collection cannot leave you standing in a wall.
+- **Best score** - the fewest moves, kept per size **and** per source: a level
+  the watch rolled at random is not the same challenge as one that was vetted
+  before it shipped.
 - **Languages** - the on-watch text is localized into the same 11 languages as the
   sibling [AmazfitRaceStats](https://github.com/dchernykh1984/AmazfitRaceStats) app:
   English, Russian, German, French, Italian, Spanish, Portuguese, Dutch, Polish,
@@ -97,15 +105,28 @@ app.js                   app entry
 lib/                     PURE, unit-tested logic (no Zepp OS imports)
   sokoban.js             the rule set: walking, pushing, undo, solved
   generator.js           random levels built backwards from a solved warehouse
-  levels.js              the three difficulties and what they ask the generator for
+  generator-steps.js     the same, one slice at a time, so a bar can move
+  solver.js              the optimal solver used offline to reject easy levels
+  collection.js          the offline quality gate
+  levels.js              the six sizes and what they ask the generator for
+  sources.js             built-in collection or generated on the watch
+  level-format.js        the .sok text the collection is stored in
+  level-pack.js          the binary the watch seeks into
+  level-store.js         reading one warehouse without loading the rest
+  progress.js            which warehouses have been finished
+  save.js                the game in progress, for picking up later
   directions.js          the four grid directions
-  board.js               the window onto the warehouse, inscribed in the round screen
+  board.js               the window onto the warehouse, inscribed in the circle
   round-geometry.js      chord maths that keeps text and buttons off the bezel
-  viewport.js            the camera: centring, following, panning, hit-testing
-  touch.js               tap versus drag, and which way a tap steps
-  render.js              what stands on a cell, and the colours it is drawn in
-  scores.js              the persisted best, per difficulty
+  viewport.js            the camera, in pixels: centring, following, panning
+  controls.js            where the arrows sit, and what is under a finger
+  touch.js               tap versus drag
+  render.js              what stands on a cell
+  paint.js               what that looks like, as drawing primitives
+  scores.js              the persisted best, per size and source
   i18n/                  keys.js (the contract), labels.js (11 tables), index.js
+maps/                    the shipped collection, as readable text
+scripts/                 generate, pack, validate and solve (see above)
 page/index.js            the watch screen: drawing, touches, the screens
 page/index.r.layout.js   the layout module Zepp OS requires per page
 utils/config/            device.js (screen size), constants.js (chrome, layout fractions)
@@ -117,15 +138,20 @@ vitest.config.mjs        aliases @zos/* onto those doubles
 ```
 
 The split is deliberate: every rule and every measurement lives in `lib/`, where a
-test can reach it without a watch, and `page/index.js` only turns that into widgets
-and reacts to touches. The board is a fixed grid of widgets that the camera moves
-over, and a step or a drag recolours only the cells that changed, so panning keeps
-up with a finger instead of rebuilding a hundred widgets a frame.
+test can reach it without a watch, and `page/index.js` only turns that into
+widgets and reacts to touches.
+
+The whole game screen is a **single canvas**. That is what makes the map slide
+under a finger pixel by pixel instead of jumping a cell at a time, lets the
+crates and the keeper be drawn rather than shipped as images at six sizes, and
+keeps the touch handling to one surface with a pure hit-test behind it. The
+canvas is taken down whenever a menu opens, because a listening canvas swallows
+taps meant for the buttons drawn over it.
 
 The screen is tested too, not just the rules. The `@zos/*` modules only exist
-inside a Zepp OS build, so `vitest.config.mjs` resolves them to doubles that record
-the widgets the page creates and let a test press, drag and lift a finger on them.
-The end-to-end case taps out a whole generated puzzle cell by cell - the same
+inside a Zepp OS build, so `vitest.config.mjs` resolves them to doubles that
+record what the page drew and let a test press, drag and lift a finger on it. The
+end-to-end case walks a whole generated warehouse out arrow by arrow - the same
 solution the generator proves - and checks the record that lands in storage.
 
 ### In the store
