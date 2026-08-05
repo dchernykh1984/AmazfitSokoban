@@ -304,10 +304,15 @@ describe("the in-game menu", () => {
     expect(watch.buttons()).toEqual([]);
   });
 
-  it("ignores the arrows while it is open", async () => {
+  // The canvas is taken away while a menu is up, which is what lets the menu
+  // buttons be pressed at all - a listening canvas underneath swallows the tap
+  // on a real watch. So there is nothing left to steer with, and nothing does.
+  it("takes the board away so its buttons can be pressed, and stops the arrows", async () => {
     const { watch } = await playing(3);
     const game = watch.page.state.game;
     watch.tapControl("menu");
+
+    expect(watch.canvas()).toBeUndefined();
     for (const direction of [UP, RIGHT, DOWN, LEFT]) {
       pressArrow(watch, direction);
     }
@@ -375,6 +380,7 @@ describe("solving the puzzle", () => {
   it("stops listening to the arrows once it is solved", async () => {
     const { watch } = await solve(3);
     const moves = watch.page.state.game.moves;
+    expect(watch.canvas()).toBeUndefined();
     for (const direction of [UP, RIGHT, DOWN, LEFT]) {
       pressArrow(watch, direction);
     }
@@ -415,8 +421,10 @@ describe("what actually ends up on the canvas", () => {
 
   it("shows a crate that is home in the finished colour", async () => {
     const { watch, level } = await playing(3);
-    for (const direction of level.solution) {
-      pressArrow(watch, direction);
+    // Stop one move short: the last move opens the solved screen, which takes
+    // the canvas away with it.
+    for (let i = 0; i < level.solution.length - 1; i++) {
+      pressArrow(watch, level.solution[i]);
     }
     const colours = watch.drawn().map((command) => command.color);
     expect(colours).toContain(COLOR_BOX_DONE);

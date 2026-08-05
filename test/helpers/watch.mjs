@@ -110,17 +110,26 @@ export async function launch(options) {
     // ---- touching it ----
 
     touchDown(x, y) {
-      this.backdrop().fire(zos.ui.event.CLICK_DOWN, { x, y });
+      const surface = this.backdrop();
+      if (surface) {
+        surface.fire(zos.ui.event.CLICK_DOWN, { x, y });
+      }
       return this;
     },
 
     touchMove(x, y) {
-      this.backdrop().fire(zos.ui.event.MOVE, { x, y });
+      const surface = this.backdrop();
+      if (surface) {
+        surface.fire(zos.ui.event.MOVE, { x, y });
+      }
       return this;
     },
 
     touchUp(x, y) {
-      this.backdrop().fire(zos.ui.event.CLICK_UP, { x, y });
+      const surface = this.backdrop();
+      if (surface) {
+        surface.fire(zos.ui.event.CLICK_UP, { x, y });
+      }
       return this;
     },
 
