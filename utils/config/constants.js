@@ -3,14 +3,9 @@
 // for two round resolutions (466 and 480) and the whole board is laid out from
 // the diameter.
 
-// Pixels trimmed off each side of a floor tile, so the grid reads as cells rather
-// than as one flat slab, and the corner rounding of a tile.
-export const CELL_INSET = 1;
-export const TILE_RADIUS = 3;
-
 // The colours of the chrome around the board. The warehouse itself - floor,
-// walls, crates, goals, the keeper - is coloured in lib/render.js, next to the
-// rule that decides which of them a cell gets.
+// walls, crates, goals, the keeper - is coloured in lib/paint.js, next to the
+// code that draws it.
 export const COLOR_BACKGROUND = 0x000000;
 export const COLOR_BOARD_EDGE = 0x2b3339;
 export const COLOR_TEXT = 0xffffff;
