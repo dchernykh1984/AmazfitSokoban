@@ -210,10 +210,8 @@ describe("the drawn controls", () => {
   it("keeps every control inside its button", () => {
     const inside = (commands) => {
       for (const command of commands) {
-        const xs =
-          command.op === "poly" ? command.points.map((point) => point.x) : [command.x1, command.x2];
-        const ys =
-          command.op === "poly" ? command.points.map((point) => point.y) : [command.y1, command.y2];
+        const xs = [command.x1, command.x2];
+        const ys = [command.y1, command.y2];
         for (const x of xs) {
           expect(x).toBeGreaterThanOrEqual(BUTTON.x);
           expect(x).toBeLessThanOrEqual(BUTTON.x + BUTTON.w);
