@@ -5,6 +5,7 @@ import { LABELS } from "../lib/i18n/labels.js";
 import { LEVELS } from "../lib/levels.js";
 import { COLOR_BOX, COLOR_BOX_DONE, COLOR_KEEPER } from "../lib/paint.js";
 import { seeded } from "../lib/random.js";
+import { SAVE_KEY } from "../lib/save.js";
 import { LEVEL_KEY, bestKey } from "../lib/scores.js";
 import { BUILT_IN, GENERATED, SOURCE_KEY } from "../lib/sources.js";
 
@@ -633,5 +634,67 @@ describe("generating a warehouse on the watch", () => {
     const watch = await generating(4);
     watch.page.onDestroy();
     expect(watch.page.state.run).toBeNull();
+  });
+});
+
+describe("picking a warehouse back up", () => {
+  it("offers to continue, and comes back to the same position", async () => {
+    const { watch } = await playing(3);
+    const game = watch.page.state.game;
+    stepAnywhere(watch);
+    stepAnywhere(watch);
+    const moves = game.moves;
+    const player = game.player;
+    const boxes = game.boxes.slice();
+
+    // Leave the game the way a player would.
+    watch.tapControl("menu");
+    watch.press(EN.size);
+    expect(watch.buttons()).toContain(EN.continue);
+
+    watch.press(EN.continue);
+    const resumed = watch.page.state.game;
+    expect(watch.page.state.screen).toBe("playing");
+    expect(resumed.moves).toBe(moves);
+    expect(resumed.player).toBe(player);
+    expect(resumed.boxes).toEqual(boxes);
+  });
+
+  it("can still be undone and restarted after coming back", async () => {
+    const { watch } = await playing(3);
+    stepAnywhere(watch);
+    watch.tapControl("menu");
+    watch.press(EN.size);
+    watch.press(EN.continue);
+
+    watch.tapControl("undo");
+    expect(watch.page.state.game.moves).toBe(0);
+  });
+
+  it("survives being reopened from cold storage", async () => {
+    const { watch } = await playing(3);
+    stepAnywhere(watch);
+    const saved = watch.zos.storage.behaviour.items[SAVE_KEY];
+    expect(saved).toBeTruthy();
+
+    const reopened = await launch({ stored: { [SAVE_KEY]: saved } });
+    expect(reopened.buttons()).toContain(EN.continue);
+    reopened.press(EN.continue);
+    expect(reopened.page.state.screen).toBe("playing");
+    expect(reopened.page.state.game.moves).toBe(1);
+  });
+
+  it("forgets a finished warehouse rather than offering it again", async () => {
+    const { watch, level } = await playing(3);
+    for (const direction of level.solution) {
+      pressArrow(watch, direction);
+    }
+    watch.press(EN.size);
+    expect(watch.buttons()).not.toContain(EN.continue);
+  });
+
+  it("ignores a save that has gone bad", async () => {
+    const watch = await launch({ stored: { [SAVE_KEY]: "not a save" } });
+    expect(watch.buttons()).not.toContain(EN.continue);
   });
 });

@@ -200,8 +200,9 @@ Page({
     // finished puzzle can be struck off the list.
     collection: null,
     dealt: -1,
-    // A game left unfinished last time, if there is one.
-    saved: null,
+    // Whether there is a game left unfinished. The game itself is only decoded
+    // when the player actually asks to continue.
+    hasSave: false,
     // The generation in flight, and the widgets showing how it is going.
     run: null,
     runTimer: null,
@@ -254,7 +255,7 @@ Page({
     // The section table is the only part of the collection ever held in memory;
     // a level is read straight out of the file when a game starts.
     this.state.collection = openCollection(assetReader);
-    this.state.saved = decodeSave(readText(this.state.storage, SAVE_KEY));
+    this.state.hasSave = decodeSave(readText(this.state.storage, SAVE_KEY)) !== null;
 
     this.drawCanvas();
     onGesture({ callback: (gesture) => this.onGesture(gesture) });
@@ -423,13 +424,17 @@ Page({
     const source = SOURCES.indexOf(this.state.source);
     const text = encodeSave(this.state.level, source < 0 ? 0 : source, this.state.game);
     writeText(this.state.storage, SAVE_KEY, text);
-    this.state.saved = decodeSave(text);
+    // Only a flag is kept, not a decoded copy: this runs after every single
+    // move, and parsing back the string that was just written would be pure
+    // waste. The start screen only needs to know whether there IS a save; it
+    // reads the real one when the player asks to continue.
+    this.state.hasSave = true;
   },
 
   // A finished warehouse is not worth coming back to.
   forgetSave() {
     writeText(this.state.storage, SAVE_KEY, "");
-    this.state.saved = null;
+    this.state.hasSave = false;
   },
 
   // Scroll the map only when the keeper gets close to the edge of the window, so
@@ -491,7 +496,7 @@ Page({
     // A warehouse left unfinished is the first thing offered: the big sizes take
     // more than one sitting, and losing that position would be the whole point
     // of saving it.
-    if (this.state.saved) {
+    if (this.state.hasSave) {
       items.splice(items.length - 1, 0, {
         kind: "button",
         height: BUTTON_HEIGHT,
@@ -506,8 +511,12 @@ Page({
 
   // Pick the unfinished warehouse back up exactly where it was left.
   resumeSaved() {
-    const saved = this.state.saved;
+    const saved = decodeSave(readText(this.state.storage, SAVE_KEY));
     if (!saved) {
+      // The save went bad between the start screen being drawn and the button
+      // being pressed. Better a fresh start screen than a broken board.
+      this.state.hasSave = false;
+      this.showStart();
       return;
     }
 
