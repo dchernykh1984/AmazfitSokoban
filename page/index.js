@@ -3,6 +3,7 @@ import { getLanguage } from "@zos/settings";
 import { onGesture, offGesture } from "@zos/interaction";
 import { setPageBrightTime, resetPageBrightTime } from "@zos/display";
 import { LocalStorage } from "@zos/storage";
+import { O_RDONLY, closeSync, openAssetsSync, readSync } from "@zos/fs";
 
 import { boardLayout } from "../lib/board.js";
 import {
@@ -20,7 +21,16 @@ import { LEVELS, clampLevel, levelSpec, nextLevel } from "../lib/levels.js";
 import { COLOR_EMPTY, paintArrow, paintCell, paintMenuIcon, paintUndoIcon } from "../lib/paint.js";
 import { cellKind } from "../lib/render.js";
 import { centeredBox } from "../lib/round-geometry.js";
+import { openCollection, readLevel, sectionFor } from "../lib/level-store.js";
+import {
+  decodeProgress,
+  encodeProgress,
+  markPlayed,
+  pickUnplayed,
+  progressKey,
+} from "../lib/progress.js";
 import { LEVEL_KEY, bestKey, hasBest, normalizeMoves, updateBest } from "../lib/scores.js";
+import { BUILT_IN, SOURCE_KEY, clampSource, nextSource, sourceLabel } from "../lib/sources.js";
 import {
   boxesOnGoals,
   columnOf,
@@ -78,6 +88,9 @@ const TAP_SLOP = Math.round(SCREEN_SIZE * TAP_SLOP_FRACTION);
 
 const BOARD_EDGE_WIDTH = 3;
 
+// The packed collection, built from maps/*.sok by scripts/pack-maps.mjs.
+const LEVELS_FILE = "levels.bin";
+
 // A widget that failed to take a setting is not worth crashing a game over, and
 // a watch that has no storage should still play - just without remembering.
 const memory = {};
@@ -103,6 +116,52 @@ function readNumber(storage, key) {
   return normalizeMoves(readValue(storage, key));
 }
 
+function readText(storage, key) {
+  const value = readValue(storage, key);
+  return value === undefined || value === null ? "" : String(value);
+}
+
+function writeText(storage, key, value) {
+  memory[key] = value;
+  if (storage) {
+    try {
+      storage.setItem(key, value);
+    } catch {
+      // The in-memory copy above still holds for this session.
+    }
+  }
+}
+
+// Read `length` bytes at `offset` out of the packed collection in the app's
+// assets. The file is opened for each read rather than held open: a read happens
+// twice per game, and a descriptor left open across a suspend is worth less than
+// the microseconds it saves.
+function assetReader(offset, length) {
+  let fd = null;
+  try {
+    fd = openAssetsSync({ path: LEVELS_FILE, flag: O_RDONLY });
+    if (fd === undefined || fd === null || fd < 0) {
+      return null;
+    }
+    const buffer = new ArrayBuffer(length);
+    const read = readSync({ fd, buffer, options: { length, position: offset } });
+    if (read < length) {
+      return null;
+    }
+    return new Uint8Array(buffer);
+  } catch {
+    return null;
+  } finally {
+    if (fd !== null && fd !== undefined && fd >= 0) {
+      try {
+        closeSync({ fd });
+      } catch {
+        // Nothing useful to do about a descriptor that will not close.
+      }
+    }
+  }
+}
+
 function writeNumber(storage, key, value) {
   memory[key] = value;
   if (storage) {
@@ -118,7 +177,12 @@ Page({
   state: {
     language: "en",
     level: 0,
+    source: BUILT_IN,
     best: 0,
+    // The packed collection: its section table, and which level was dealt, so a
+    // finished puzzle can be struck off the list.
+    collection: null,
+    dealt: -1,
     screen: "start",
     storage: null,
     destroyed: false,
@@ -160,11 +224,13 @@ Page({
     }
 
     this.state.touch = createTouch(TAP_SLOP);
-    this.state.best = readNumber(
-      this.state.storage,
-      bestKey(clampLevel(readValue(this.state.storage, LEVEL_KEY)))
-    );
+    this.state.source = clampSource(readText(this.state.storage, SOURCE_KEY));
     this.useSize(readValue(this.state.storage, LEVEL_KEY));
+    this.state.best = readNumber(this.state.storage, this.bestKeyNow());
+
+    // The section table is the only part of the collection ever held in memory;
+    // a level is read straight out of the file when a game starts.
+    this.state.collection = openCollection(assetReader);
 
     this.drawCanvas();
     onGesture({ callback: (gesture) => this.onGesture(gesture) });
@@ -348,6 +414,14 @@ Page({
         onClick: () => this.cycleSize(),
       },
       { kind: "gap", height: STACK_GAP },
+      { kind: "text", height: TEXT_SMALL, color: COLOR_MUTED, text: this.text("source") },
+      {
+        kind: "button",
+        height: BUTTON_HEIGHT,
+        text: this.text(sourceLabel(this.state.source)),
+        onClick: () => this.cycleSource(),
+      },
+      { kind: "gap", height: STACK_GAP },
       {
         kind: "button",
         height: BUTTON_HEIGHT,
@@ -357,19 +431,86 @@ Page({
     ]);
   },
 
+  // The record is kept per size AND per source: a level the watch rolled is not
+  // the same challenge as one that was solved and vetted before it shipped.
+  bestKeyNow() {
+    return bestKey(this.state.level, this.state.source);
+  },
+
+  cycleSource() {
+    this.state.source = nextSource(this.state.source);
+    writeText(this.state.storage, SOURCE_KEY, this.state.source);
+    this.state.best = readNumber(this.state.storage, this.bestKeyNow());
+    this.showStart();
+  },
+
   // Walk to the next size and remember it, so the game reopens the way it was
   // left. Each size keeps its own best, so that is reloaded too.
   cycleSize() {
     this.useSize(nextLevel(this.state.level));
     writeNumber(this.state.storage, LEVEL_KEY, this.state.level);
-    this.state.best = readNumber(this.state.storage, bestKey(this.state.level));
+    this.state.best = readNumber(this.state.storage, this.bestKeyNow());
     this.showStart();
+  },
+
+  // A warehouse from the shipped collection when there is one, otherwise one
+  // generated here and now. A collection that is missing or damaged silently
+  // falls back to generating, so the game always has something to play.
+  dealLevel(spec) {
+    this.state.dealt = -1;
+    if (this.state.source !== BUILT_IN) {
+      return generateLevel(spec, Math.random);
+    }
+
+    const section = sectionFor(this.state.collection, spec.cols);
+    if (section === null) {
+      return generateLevel(spec, Math.random);
+    }
+
+    const progress = this.readProgress(spec, section.count);
+    const pick = pickUnplayed(progress, Math.random);
+    const level = readLevel(assetReader, section, pick.index);
+    if (level === null) {
+      return generateLevel(spec, Math.random);
+    }
+
+    this.state.dealt = pick.index;
+    if (pick.wrapped) {
+      // Every warehouse of this size has been finished; the slate was just
+      // wiped, so save the fresh one rather than the full one.
+      this.writeProgress(spec, progress);
+    }
+    return level;
+  },
+
+  readProgress(spec, count) {
+    return decodeProgress(readText(this.state.storage, progressKey(spec.id)), count);
+  },
+
+  writeProgress(spec, progress) {
+    writeText(this.state.storage, progressKey(spec.id), encodeProgress(progress));
+  },
+
+  // Strike the finished warehouse off the list, so it is not dealt again until
+  // every other one of its size has been played.
+  markDealtSolved() {
+    if (this.state.dealt < 0 || this.state.source !== BUILT_IN) {
+      return;
+    }
+    const spec = levelSpec(this.state.level);
+    const section = sectionFor(this.state.collection, spec.cols);
+    if (section === null) {
+      return;
+    }
+    const progress = this.readProgress(spec, section.count);
+    markPlayed(progress, this.state.dealt);
+    this.writeProgress(spec, progress);
   },
 
   startGame() {
     const spec = levelSpec(this.state.level);
-    const level = generateLevel(spec, Math.random);
-    if (level === null) {
+    const level = this.dealLevel(spec);
+    if (level === null || level === undefined) {
       return;
     }
 
@@ -467,8 +608,9 @@ Page({
     const result = updateBest(this.state.best, moves);
     this.state.best = result.best;
     if (result.isRecord) {
-      writeNumber(this.state.storage, bestKey(this.state.level), result.best);
+      writeNumber(this.state.storage, this.bestKeyNow(), result.best);
     }
+    this.markDealtSolved();
 
     this.drawMenu([
       { kind: "text", height: TEXT_BIG, color: COLOR_ACCENT, text: this.text("solved") },

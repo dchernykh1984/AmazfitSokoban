@@ -23,6 +23,7 @@ export default defineConfig({
       "@zos/display": zos("display"),
       "@zos/storage": zos("storage"),
       "@zos/device": zos("device"),
+      "@zos/fs": zos("fs"),
     },
   },
 });

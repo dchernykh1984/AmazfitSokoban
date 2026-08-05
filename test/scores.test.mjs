@@ -2,9 +2,15 @@ import { describe, it, expect } from "vitest";
 import { LEVEL_KEY, NO_BEST, bestKey, hasBest, normalizeMoves, updateBest } from "../lib/scores.js";
 
 describe("storage keys", () => {
-  it("keeps a separate best per difficulty", () => {
+  it("keeps a separate best per size", () => {
     expect(bestKey(0)).not.toBe(bestKey(1));
     expect(bestKey(0)).toBe(bestKey(0));
+  });
+
+  it("keeps a separate best per source, because they are not the same challenge", () => {
+    expect(bestKey(0, "builtin")).not.toBe(bestKey(0, "generated"));
+    expect(bestKey(0, "builtin")).not.toBe(bestKey(1, "builtin"));
+    expect(bestKey(2, "generated")).toBe(bestKey(2, "generated"));
   });
 
   it("remembers the chosen difficulty under its own key", () => {
