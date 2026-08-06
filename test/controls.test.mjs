@@ -82,6 +82,23 @@ describe("controlLayout", () => {
     }
   });
 
+  // A control has to be big enough for a fingertip, which is about 35px on these
+  // screens. Nothing else pins this: the row could be squashed to a quarter of
+  // its height and every other test would still pass, which is exactly the
+  // regression the layout was reworked to fix.
+  it("gives every control a target a finger can hit", () => {
+    for (const screen of SCREENS) {
+      for (const spec of LEVELS) {
+        const { layout } = layoutFor(screen, spec.visible);
+        for (const key of ["up", "down", "left", "right", "undo", "menu"]) {
+          const where = screen + " " + spec.id + " " + key;
+          expect(layout[key].w, where + " width").toBeGreaterThanOrEqual(35);
+          expect(layout[key].h, where + " height").toBeGreaterThanOrEqual(35);
+        }
+      }
+    }
+  });
+
   it("gives every control something to hit", () => {
     for (const screen of SCREENS) {
       for (const spec of LEVELS) {
