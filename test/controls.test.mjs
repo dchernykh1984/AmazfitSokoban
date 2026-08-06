@@ -47,6 +47,35 @@ describe("controlLayout", () => {
     }
   });
 
+  // The counters are a line of text, and a line of text has a width. Right at
+  // the top of a round screen the chord is barely 70px, and "0/7   123" needs
+  // about 110 - so the row has to sit low enough to hold the longest string the
+  // game can put in it, at the size it is lettered.
+  it("leaves room for the longest counter it can ever show", () => {
+    for (const screen of SCREENS) {
+      for (const spec of LEVELS) {
+        const { layout } = layoutFor(screen, spec.visible);
+        const where = screen + " " + spec.id;
+
+        // What paintCounter renders, at its worst: every crate home, four digits
+        // of moves. Half the point size a character, which is generous for the
+        // digits and slashes this line is made of.
+        const size = Math.round(layout.counter.h * 0.86);
+        const longest = spec.boxes + "/" + spec.boxes + "   9999";
+        const needed = longest.length * size * 0.5;
+
+        expect(layout.counter.w, where + " box").toBeGreaterThanOrEqual(needed);
+
+        // And the bezel, measured across the top of the lettering rather than
+        // the box: that is the narrowest chord the text itself touches.
+        const radius = screen / 2;
+        const textTop = layout.counter.y + layout.counter.h / 2 - size / 2;
+        const chord = 2 * Math.sqrt(radius * radius - Math.pow(radius - textTop, 2));
+        expect(chord, where + " bezel").toBeGreaterThanOrEqual(needed);
+      }
+    }
+  });
+
   it("lines undo, down and menu up in the bottom segment", () => {
     const { layout } = layoutFor(466, 11);
     expect(layout.undo.y).toBe(layout.down.y);
