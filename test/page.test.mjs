@@ -3,7 +3,7 @@ import { DOWN, LEFT, RIGHT, UP, VECTORS } from "../lib/directions.js";
 import { generateLevel } from "../lib/generator.js";
 import { LABELS } from "../lib/i18n/labels.js";
 import { LEVELS } from "../lib/levels.js";
-import { COLOR_BOX, COLOR_BOX_DONE, COLOR_KEEPER } from "../lib/paint.js";
+import { COLOR_BOX, COLOR_BOX_DONE, COLOR_EMPTY, COLOR_KEEPER } from "../lib/paint.js";
 import { seeded } from "../lib/random.js";
 import { SAVE_KEY } from "../lib/save.js";
 import { LEVEL_KEY, bestKey } from "../lib/scores.js";
@@ -483,6 +483,58 @@ describe("what actually ends up on the canvas", () => {
       for (const line of inArea) {
         expect(line.width, "hairline arrow in the " + key + " segment").toBeGreaterThan(2);
       }
+    }
+  });
+
+  // A round watch has no corners to hide a stray cell in: anything drawn past
+  // the window lands on the arrows or over the rim of the face.
+  it("leaves nothing of the warehouse outside the board window", async () => {
+    const { watch } = await playing(5, 5);
+    const board = watch.page.state.board;
+    const middle = Math.round(watch.size / 2);
+
+    for (const [dx, dy] of [
+      [0, 0],
+      [-37, -23],
+      [-140, -95],
+      [66, 41],
+    ]) {
+      watch.drag(middle, middle, middle + dx, middle + dy, 4);
+
+      // A cell at the edge is drawn whole and does hang over the window; what
+      // matters is what is still showing once everything has been painted. So
+      // this asks the picture for the colour left at a point, the way the screen
+      // would end up looking.
+      const colourAt = (x, y) => {
+        let colour = null;
+        for (const command of watch.drawn()) {
+          if (
+            command.op === "rect" &&
+            x >= command.x1 &&
+            x < command.x2 &&
+            y >= command.y1 &&
+            y < command.y2
+          ) {
+            colour = command.color;
+          }
+        }
+        return colour;
+      };
+
+      const where = "pan " + dx + "," + dy;
+      const outside = [
+        [board.x + board.size + 6, board.y + Math.round(board.size / 2)],
+        [board.x - 6, board.y + Math.round(board.size / 2)],
+        [Math.round(board.x + board.size / 2), board.y + board.size + 6],
+        [Math.round(board.x + board.size / 2), board.y - 6],
+        [board.x + board.size + 20, board.y + board.size + 20],
+      ];
+      for (const [x, y] of outside) {
+        expect(colourAt(x, y), where + " at " + x + "," + y).toBe(COLOR_EMPTY);
+      }
+      // And the window itself still has the warehouse in it.
+      const inside = colourAt(board.x + 4, board.y + 4);
+      expect(inside, where + " inside").not.toBe(COLOR_EMPTY);
     }
   });
 
