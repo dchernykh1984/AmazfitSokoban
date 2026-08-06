@@ -4,6 +4,7 @@ import { generateLevel } from "../lib/generator.js";
 import { LABELS } from "../lib/i18n/labels.js";
 import { LEVELS } from "../lib/levels.js";
 import { COLOR_BOX, COLOR_BOX_DONE, COLOR_EMPTY, COLOR_KEEPER } from "../lib/paint.js";
+import { COLOR_BOARD_EDGE } from "../utils/config/constants.js";
 import { seeded } from "../lib/random.js";
 import { SAVE_KEY } from "../lib/save.js";
 import { LEVEL_KEY, bestKey } from "../lib/scores.js";
@@ -563,6 +564,20 @@ describe("what actually ends up on the canvas", () => {
         [right - 3, bottom - 3],
       ]) {
         expect(colourAt(x, y), where + " inside at " + x + "," + y).not.toBe(COLOR_EMPTY);
+      }
+
+      // The frame around the window is drawn last of the board, so it survives
+      // the mask that paints out whatever hung over. Sampled a pixel out, which
+      // is inside the frame and outside the window.
+      const midY = board.y + Math.round(board.size / 2);
+      const midX = board.x + Math.round(board.size / 2);
+      for (const [x, y] of [
+        [board.x - 1, midY],
+        [right, midY],
+        [midX, board.y - 1],
+        [midX, bottom],
+      ]) {
+        expect(colourAt(x, y), where + " frame at " + x + "," + y).toBe(COLOR_BOARD_EDGE);
       }
     }
   });
