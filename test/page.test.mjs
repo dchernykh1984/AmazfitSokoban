@@ -552,9 +552,18 @@ describe("what actually ends up on the canvas", () => {
       for (const [x, y] of outside) {
         expect(colourAt(x, y), where + " at " + x + "," + y).toBe(COLOR_EMPTY);
       }
-      // And the window itself still has the warehouse in it.
-      const inside = colourAt(board.x + 4, board.y + 4);
-      expect(inside, where + " inside").not.toBe(COLOR_EMPTY);
+      // And every corner of the window itself still has warehouse in it: a range
+      // that is one row short leaves the far edge showing raw background.
+      const right = board.x + board.size;
+      const bottom = board.y + board.size;
+      for (const [x, y] of [
+        [board.x + 2, board.y + 2],
+        [right - 3, board.y + 2],
+        [board.x + 2, bottom - 3],
+        [right - 3, bottom - 3],
+      ]) {
+        expect(colourAt(x, y), where + " inside at " + x + "," + y).not.toBe(COLOR_EMPTY);
+      }
     }
   });
 
