@@ -137,9 +137,29 @@ describe("the camera", () => {
 });
 
 describe("visibleCells", () => {
+  // Eleven cells fit the window, so an aligned map shows cells 0 to 10. Column
+  // 11 begins exactly where the window ends: taking it as well would draw a
+  // whole column outside the board, and nothing on this canvas clips it.
   it("covers the whole window when the map is aligned", () => {
     const camera = createCamera(19, 19, 11, CELL);
-    expect(visibleCells(camera)).toEqual({ fromX: 0, toX: 11, fromY: 0, toY: 11 });
+    expect(visibleCells(camera)).toEqual({ fromX: 0, toX: 10, fromY: 0, toY: 10 });
+  });
+
+  it("never hands back a cell with no pixel in the window", () => {
+    const camera = createCamera(19, 19, 11, CELL);
+    for (const offset of [0, 1, 7, CELL - 1, CELL, CELL * 3 + 11, CELL * 8]) {
+      camera.x = offset;
+      camera.y = offset;
+      const range = visibleCells(camera);
+      const window = camera.visible * camera.cell;
+
+      expect(range.fromX * CELL, "left at " + offset).toBeLessThan(camera.x + window);
+      expect((range.toX + 1) * CELL, "right at " + offset).toBeGreaterThan(camera.x);
+      // The cell after the last one drawn starts at or past the window's end.
+      expect((range.toX + 1) * CELL, "past the right edge at " + offset).toBeLessThanOrEqual(
+        camera.x + window + CELL - 1
+      );
+    }
   });
 
   it("includes the row that is only half on screen", () => {

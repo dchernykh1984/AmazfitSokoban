@@ -941,16 +941,6 @@ Page({
     }
 
     this.paintBackground();
-    this.runCommands([
-      {
-        op: "rect",
-        x1: board.x - BOARD_EDGE_WIDTH,
-        y1: board.y - BOARD_EDGE_WIDTH,
-        x2: board.x + board.size + BOARD_EDGE_WIDTH,
-        y2: board.y + board.size + BOARD_EDGE_WIDTH,
-        color: COLOR_BOARD_EDGE,
-      },
-    ]);
 
     const range = visibleCells(camera);
     for (let row = range.fromY; row <= range.toY; row++) {
@@ -960,7 +950,43 @@ Page({
       }
     }
 
+    this.paintWindowEdge();
     this.paintControls();
+  },
+
+  // Paint over whatever hung out of the window, then draw the frame around it.
+  //
+  // A cell at the edge is only partly inside the window and is drawn whole -
+  // there is no clipping on this canvas, it is the entire screen - so without
+  // this the warehouse spills a strip of crates and floor across the arrows and
+  // over the rim of a round face. Doing it as four rectangles afterwards costs
+  // four draws and keeps every cell pixel-exact, which cropping them one by one
+  // would not: a crate is a circle and a keeper is a disc, and neither survives
+  // being cut in half by arithmetic.
+  paintWindowEdge() {
+    const board = this.state.board;
+    const right = board.x + board.size;
+    const bottom = board.y + board.size;
+    const edge = BOARD_EDGE_WIDTH;
+
+    this.runCommands([
+      { op: "rect", x1: 0, y1: 0, x2: SCREEN_SIZE, y2: board.y, color: COLOR_EMPTY },
+      { op: "rect", x1: 0, y1: bottom, x2: SCREEN_SIZE, y2: SCREEN_SIZE, color: COLOR_EMPTY },
+      { op: "rect", x1: 0, y1: board.y, x2: board.x, y2: bottom, color: COLOR_EMPTY },
+      { op: "rect", x1: right, y1: board.y, x2: SCREEN_SIZE, y2: bottom, color: COLOR_EMPTY },
+
+      { op: "rect", x1: board.x - edge, y1: board.y - edge, x2: right + edge, y2: board.y, color: COLOR_BOARD_EDGE }, // prettier-ignore
+      { op: "rect", x1: board.x - edge, y1: bottom, x2: right + edge, y2: bottom + edge, color: COLOR_BOARD_EDGE }, // prettier-ignore
+      {
+        op: "rect",
+        x1: board.x - edge,
+        y1: board.y,
+        x2: board.x,
+        y2: bottom,
+        color: COLOR_BOARD_EDGE,
+      },
+      { op: "rect", x1: right, y1: board.y, x2: right + edge, y2: bottom, color: COLOR_BOARD_EDGE },
+    ]);
   },
 
   // The arrows and the two buttons, drawn after the board so a cell that hangs
