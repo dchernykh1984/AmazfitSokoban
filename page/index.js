@@ -970,6 +970,10 @@ Page({
 
   // Paint over whatever hung out of the window, then draw the frame around it.
   //
+  // Every rectangle here treats x2/y2 as one past the last pixel, the way the
+  // rest of the drawing code does - the frame abuts the window rather than
+  // overlapping it, so an off-by-one would eat the outermost row of crates.
+  //
   // A cell at the edge is only partly inside the window and is drawn whole -
   // there is no clipping on this canvas, it is the entire screen - so without
   // this the warehouse spills a strip of crates and floor across the arrows and
@@ -1003,8 +1007,10 @@ Page({
     ]);
   },
 
-  // The arrows and the two buttons, drawn after the board so a cell that hangs
-  // over the edge of the window cannot paint over them.
+  // The arrows and the two buttons, drawn last. Nothing of the warehouse can
+  // reach them any more - paintWindowEdge has already painted out whatever hung
+  // over the window - but the order still matters, because that mask runs the
+  // full width of the screen and would wipe the controls if it came after them.
   paintControls() {
     const layout = this.state.layout;
     const metrics = arrowMetrics(ARROWS.map((arrow) => layout[arrow.key]));
