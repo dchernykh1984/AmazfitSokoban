@@ -110,17 +110,27 @@ describe("what a margin buys the single-cell repaint", () => {
     }
   });
 
+  // With no margin the keeper itself is still inside - it is the cell it came
+  // from and the crate it just pushed that hang over the edge, and those are
+  // repainted too. That is the whole reason the margin is not zero.
   it("does not hold with no margin at all, which is why there is one", () => {
-    let hanging = 0;
     const cols = 19;
     const visible = 11;
+    const window = visible * CELL;
+    let hanging = 0;
+
     for (let offset = 0; offset <= (cols - visible) * CELL; offset += 7) {
       for (let coord = 0; coord < cols; coord++) {
         if (followOffset(offset, coord, cols, visible, CELL, 0) !== offset) {
           continue;
         }
-        if (coord * CELL < offset || (coord + 1) * CELL > offset + visible * CELL) {
-          hanging++;
+        for (const cell of [coord - 1, coord + 1]) {
+          if (cell < 0 || cell >= cols) {
+            continue;
+          }
+          if (cell * CELL < offset || (cell + 1) * CELL > offset + window) {
+            hanging++;
+          }
         }
       }
     }
