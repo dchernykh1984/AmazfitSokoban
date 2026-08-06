@@ -83,6 +83,51 @@ describe("followOffset", () => {
   });
 });
 
+// The page repaints single cells after a move without masking afterwards, which
+// only works while a keeper that has not scrolled the map is a whole cell clear
+// of both edges. This is the assumption; at margin 0 it does not hold.
+describe("what a margin buys the single-cell repaint", () => {
+  it("leaves the keeper whole cells inside the window when it does not scroll", () => {
+    const cols = 19;
+    const visible = 11;
+    const window = visible * CELL;
+
+    for (let offset = 0; offset <= (cols - visible) * CELL; offset += 7) {
+      for (let coord = 0; coord < cols; coord++) {
+        if (followOffset(offset, coord, cols, visible, CELL, 2) !== offset) {
+          continue;
+        }
+        // The keeper, the cell it stepped out of and the crate ahead of it.
+        for (const cell of [coord - 1, coord, coord + 1]) {
+          if (cell < 0 || cell >= cols) {
+            continue;
+          }
+          const where = "cell " + cell + " at offset " + offset;
+          expect(cell * CELL, where).toBeGreaterThanOrEqual(offset);
+          expect((cell + 1) * CELL, where).toBeLessThanOrEqual(offset + window);
+        }
+      }
+    }
+  });
+
+  it("does not hold with no margin at all, which is why there is one", () => {
+    let hanging = 0;
+    const cols = 19;
+    const visible = 11;
+    for (let offset = 0; offset <= (cols - visible) * CELL; offset += 7) {
+      for (let coord = 0; coord < cols; coord++) {
+        if (followOffset(offset, coord, cols, visible, CELL, 0) !== offset) {
+          continue;
+        }
+        if (coord * CELL < offset || (coord + 1) * CELL > offset + visible * CELL) {
+          hanging++;
+        }
+      }
+    }
+    expect(hanging).toBeGreaterThan(0);
+  });
+});
+
 describe("panOffset", () => {
   it("moves the map with the finger, pixel for pixel", () => {
     expect(panOffset(150, 20, 19, 11, CELL)).toBe(130);
