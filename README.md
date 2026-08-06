@@ -145,6 +145,7 @@ lib/                     PURE, unit-tested logic (no Zepp OS imports)
   i18n/                  keys.js (the contract), labels.js (11 tables), index.js
 maps/                    the shipped collection, as readable text
 scripts/                 generate, pack, validate and solve (see above)
+  sync-app-version.mjs   puts the released version into app.json (see below)
 page/index.js            the watch screen: drawing, touches, the screens
 page/index.r.layout.js   the layout module Zepp OS requires per page
 utils/config/            device.js (screen size), constants.js (chrome, layout fractions)
@@ -203,6 +204,7 @@ text.
 ## Continuous integration and releases
 
 Every pull request must pass the required checks: Prettier, ESLint, the unit tests,
+`npm run version:check` (that `app.json` still names the version being released),
 `actionlint`, commitizen (Conventional Commits), and an OSV dependency scan.
 
 Releases are automated with `release-please`: it maintains a version-bump PR from the
