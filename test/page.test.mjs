@@ -455,18 +455,34 @@ describe("what actually ends up on the canvas", () => {
   it("draws an arrow in each of the four segments", async () => {
     const { watch } = await playing(3);
     const layout = watch.layout();
-    const lines = watch.drawn().filter((command) => command.op === "line");
+
+    // The width a stroke is drawn at comes from the setPaint before it, so the
+    // picture has to be walked in order rather than filtered. Thickness is half
+    // the fix: a hairline arrow on a 466px screen is barely there, and nothing
+    // else in the suite would notice it going back to one.
+    const lines = [];
+    let width = 0;
+    for (const command of watch.drawn()) {
+      if (command.op === "paint") {
+        width = command.line_width;
+      } else if (command.op === "line") {
+        lines.push({ x: command.x1, y: command.y1, width });
+      }
+    }
 
     for (const key of ["up", "down", "left", "right"]) {
       const area = layout[key];
       const inArea = lines.filter(
         (line) =>
-          line.x1 >= area.x &&
-          line.x1 <= area.x + area.w &&
-          line.y1 >= area.y &&
-          line.y1 <= area.y + area.h
+          line.x >= area.x &&
+          line.x <= area.x + area.w &&
+          line.y >= area.y &&
+          line.y <= area.y + area.h
       );
       expect(inArea.length, "no arrow drawn in the " + key + " segment").toBeGreaterThan(0);
+      for (const line of inArea) {
+        expect(line.width, "hairline arrow in the " + key + " segment").toBeGreaterThan(2);
+      }
     }
   });
 
