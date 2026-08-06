@@ -153,21 +153,34 @@ describe("visibleCells", () => {
       const range = visibleCells(camera);
       const window = camera.visible * camera.cell;
 
-      expect(range.fromX * CELL, "left at " + offset).toBeLessThan(camera.x + window);
-      expect((range.toX + 1) * CELL, "right at " + offset).toBeGreaterThan(camera.x);
-      // The cell after the last one drawn starts at or past the window's end.
-      expect((range.toX + 1) * CELL, "past the right edge at " + offset).toBeLessThanOrEqual(
-        camera.x + window + CELL - 1
-      );
+      for (const [axis, from, to, at] of [
+        ["x", range.fromX, range.toX, camera.x],
+        ["y", range.fromY, range.toY, camera.y],
+      ]) {
+        const where = axis + " at " + offset;
+        expect(from * CELL, where + " starts past the window").toBeLessThan(at + window);
+        expect((to + 1) * CELL, where + " ends before the window").toBeGreaterThan(at);
+        // The last cell drawn has to reach the far edge, or the window shows a
+        // stripe of nothing, and it must not start past it either.
+        expect((to + 1) * CELL, where + " stops short").toBeGreaterThanOrEqual(at + window);
+        expect(to * CELL, where + " overshoots").toBeLessThan(at + window);
+      }
     }
   });
 
-  it("includes the row that is only half on screen", () => {
+  // Both axes, deliberately. A range that is right across and one column short
+  // down leaves a stripe of raw background along the bottom of the window after
+  // any vertical drag, and X-only assertions never notice.
+  it("includes the column and the row that are only half on screen", () => {
     const camera = createCamera(19, 19, 11, CELL);
     camera.x = CELL + 5;
+    camera.y = CELL + 5;
     const range = visibleCells(camera);
+
     expect(range.fromX).toBe(1);
+    expect(range.fromY).toBe(1);
     expect(range.toX).toBeGreaterThanOrEqual(12);
+    expect(range.toY).toBeGreaterThanOrEqual(12);
   });
 
   it("never runs off the board", () => {
