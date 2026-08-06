@@ -26,7 +26,14 @@ import {
 } from "../lib/generator-steps.js";
 import { labelFor, languageFromZeppCode } from "../lib/i18n/index.js";
 import { LEVELS, clampLevel, levelSpec, nextLevel } from "../lib/levels.js";
-import { COLOR_EMPTY, paintArrow, paintCell, paintMenuIcon, paintUndoIcon } from "../lib/paint.js";
+import {
+  COLOR_EMPTY,
+  arrowMetrics,
+  paintArrow,
+  paintCell,
+  paintMenuIcon,
+  paintUndoIcon,
+} from "../lib/paint.js";
 import { cellKind } from "../lib/render.js";
 import { centeredBox } from "../lib/round-geometry.js";
 import { openCollection, readLevel, sectionFor } from "../lib/level-store.js";
@@ -993,9 +1000,10 @@ Page({
   // over the edge of the window cannot paint over them.
   paintControls() {
     const layout = this.state.layout;
+    const metrics = arrowMetrics(ARROWS.map((arrow) => layout[arrow.key]));
     for (let i = 0; i < ARROWS.length; i++) {
       const arrow = ARROWS[i];
-      this.runCommands(paintArrow(arrow.direction, layout[arrow.key], COLOR_TEXT));
+      this.runCommands(paintArrow(arrow.direction, layout[arrow.key], COLOR_TEXT, metrics));
     }
     this.runCommands(paintUndoIcon(layout.undo, COLOR_TEXT));
     this.runCommands(paintMenuIcon(layout.menu, COLOR_TEXT));

@@ -470,6 +470,7 @@ describe("what actually ends up on the canvas", () => {
       }
     }
 
+    const found = {};
     for (const key of ["up", "down", "left", "right"]) {
       const area = layout[key];
       const inArea = lines.filter(
@@ -483,6 +484,25 @@ describe("what actually ends up on the canvas", () => {
       for (const line of inArea) {
         expect(line.width, "hairline arrow in the " + key + " segment").toBeGreaterThan(2);
       }
+      found[key] = inArea;
+    }
+
+    // All four are one set of controls, so they are one size and one weight: the
+    // buttons they sit in are three different shapes, and an arrow sized to its
+    // own button comes out visibly bigger or heavier than the one beside it.
+    const spans = [];
+    for (const key of ["up", "down", "left", "right"]) {
+      const xs = found[key].map((line) => line.x);
+      const ys = found[key].map((line) => line.y);
+      spans.push({
+        key,
+        span: Math.max(...xs) - Math.min(...xs) + (Math.max(...ys) - Math.min(...ys)),
+        width: found[key][0].width,
+      });
+    }
+    for (const one of spans) {
+      expect(one.span, one.key + " is a different size").toBe(spans[0].span);
+      expect(one.width, one.key + " is a different weight").toBe(spans[0].width);
     }
   });
 
