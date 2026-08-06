@@ -5,6 +5,7 @@ import {
   COLOR_BOX_DONE,
   COLOR_GOAL,
   COLOR_KEEPER,
+  arrowMetrics,
   paintArrow,
   paintCell,
   paintMenuIcon,
@@ -296,6 +297,37 @@ describe("the drawn controls", () => {
     for (let i = 1; i < bars.length; i++) {
       expect(bars[i] - bars[i - 1]).toBeGreaterThan(7);
     }
+  });
+
+  // No screen the app ships gives an arrow a button this small, but a new watch
+  // size is one constant away, and an arrow drawn thicker than its button is
+  // deep would hang over its neighbours instead of failing loudly.
+  it("keeps an arrow inside even an absurdly small button", () => {
+    for (const box of [
+      { x: 0, y: 0, w: 12, h: 9 },
+      { x: 5, y: 5, w: 20, h: 20 },
+      { x: 0, y: 0, w: 3, h: 3 },
+    ]) {
+      const metrics = arrowMetrics([box]);
+      for (const direction of [UP, RIGHT, DOWN, LEFT]) {
+        for (const command of paintArrow(direction, box, WHITE, metrics)) {
+          const spill = command.width / 2;
+          for (const x of [command.x1, command.x2]) {
+            expect(x - spill, "w" + box.w).toBeGreaterThanOrEqual(box.x);
+            expect(x + spill, "w" + box.w).toBeLessThanOrEqual(box.x + box.w);
+          }
+          for (const y of [command.y1, command.y2]) {
+            expect(y - spill, "h" + box.h).toBeGreaterThanOrEqual(box.y);
+            expect(y + spill, "h" + box.h).toBeLessThanOrEqual(box.y + box.h);
+          }
+        }
+      }
+    }
+  });
+
+  it("does not fall over on a button with no size at all", () => {
+    expect(arrowMetrics([])).toEqual({ reach: 0, width: 0 });
+    expect(arrowMetrics([{ x: 0, y: 0, w: 0, h: 0 }])).toEqual({ reach: 0, width: 0 });
   });
 
   it("draws undo as an arrow bending back", () => {
