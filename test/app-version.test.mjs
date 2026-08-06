@@ -24,7 +24,14 @@ function runScript({ released, name, code }, ...args) {
     app.app.version = { code, name };
     writeFileSync(join(dir, "app.json"), JSON.stringify(app, null, 2) + "\n");
 
-    const run = spawnSync(process.execPath, [join(dir, SCRIPT), ...args], { encoding: "utf8" });
+    // From inside the throwaway directory, not from wherever vitest was started.
+    // The script resolves both files relative to itself today; if that ever
+    // becomes relative to the working directory, this test has to keep writing
+    // into the sandbox instead of quietly rewriting the repository's app.json.
+    const run = spawnSync(process.execPath, [join(dir, SCRIPT), ...args], {
+      cwd: dir,
+      encoding: "utf8",
+    });
     return {
       status: run.status,
       output: run.stdout + run.stderr,
