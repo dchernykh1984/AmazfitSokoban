@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.1](https://github.com/dchernykh1984/AmazfitSokoban/compare/amazfit-sokoban-v0.3.0...amazfit-sokoban-v0.3.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* draw all four arrows at one size and one weight ([12679e5](https://github.com/dchernykh1984/AmazfitSokoban/commit/12679e535366ed608d9ed2351df0378b51f1f1e6))
+* draw the arrows as big as the tightest button will take ([cb727fd](https://github.com/dchernykh1984/AmazfitSokoban/commit/cb727fd8f16a938d76b25c3b63efabe1dc3d0d4c))
+* draw the movement arrows with a primitive the watch renders ([22a04f2](https://github.com/dchernykh1984/AmazfitSokoban/commit/22a04f24b0a58cc81e75409bb8ed6445c7132742))
+* give undo and the menu the weight of the arrow beside them ([ddd7571](https://github.com/dchernykh1984/AmazfitSokoban/commit/ddd7571d73863f4ccd988b5c73e29dcbaecee82f))
+* keep every arrow the same shape in a button that is not square ([c0d2a43](https://github.com/dchernykh1984/AmazfitSokoban/commit/c0d2a4343dfc52cd8a1014f9e69bc09c244d9405))
+* keep every control big enough for a fingertip ([4ab0c11](https://github.com/dchernykh1984/AmazfitSokoban/commit/4ab0c11099034aeaecd51823e8a452a9ab4aa933))
+* keep the warehouse inside its window and off the watch rim ([9cb21f6](https://github.com/dchernykh1984/AmazfitSokoban/commit/9cb21f6951bd1660ad7e49cf8a0b8f43957074b5))
+* put dead space between the down arrow and undo or the menu ([075429b](https://github.com/dchernykh1984/AmazfitSokoban/commit/075429b000e7339c1192e18aa0ec295cad006708))
+* put the counters where the whole line fits on a round screen ([6f6cb73](https://github.com/dchernykh1984/AmazfitSokoban/commit/6f6cb73459b139b6d87fe6d70a290224a3b8ff6c))
+* size an arrow from the room its button really has ([734b69d](https://github.com/dchernykh1984/AmazfitSokoban/commit/734b69db346c9e60eef77c54db5c3cb30d0e933b))
+
 ## [0.3.0](https://github.com/dchernykh1984/AmazfitSokoban/compare/amazfit-sokoban-v0.2.0...amazfit-sokoban-v0.3.0) (2026-08-05)
 
 
