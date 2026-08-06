@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/dchernykh1984/AmazfitSokoban/compare/amazfit-sokoban-v0.3.1...amazfit-sokoban-v0.3.2) (2026-08-06)
+
+
+### Bug Fixes
+
+* report the released version on the watch instead of 0.1.0 ([77d00c9](https://github.com/dchernykh1984/AmazfitSokoban/commit/77d00c9362b0a9641e51d1ff96f0245755fa5ebd))
+
 ## [0.3.1](https://github.com/dchernykh1984/AmazfitSokoban/compare/amazfit-sokoban-v0.3.0...amazfit-sokoban-v0.3.1) (2026-08-06)
 
 
