@@ -92,14 +92,18 @@ describe("writing the version into app.json", () => {
   // The file is edited by hand and read in diffs, so a version bump has to show
   // up as the two lines it is - not as a reformat of the whole document.
   it("changes nothing else about the file", () => {
-    const written = syncedAppJson(APP, "1.2.3");
+    // A version the repository cannot already be sitting on. Counting the changed
+    // lines only means anything when both of them move, so a version hard-coded
+    // here would fail this test on the release PR that happened to reach it.
+    const next = Number(JSON.parse(APP).app.version.name.split(".")[0]) + 1 + ".2.3";
+    const written = syncedAppJson(APP, next);
     const before = APP.split("\n");
     const after = written.split("\n");
 
     expect(after.length).toBe(before.length);
     const changed = after.filter((line, i) => line !== before[i]);
     expect(changed.length).toBe(2);
-    expect(changed.join(" ")).toContain("1.2.3");
+    expect(changed.join(" ")).toContain(next);
   });
 
   it("leaves everything but the version untouched", () => {
