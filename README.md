@@ -166,6 +166,13 @@ keeps the touch handling to one surface with a pure hit-test behind it. The
 canvas is taken down whenever a menu opens, because a listening canvas swallows
 taps meant for the buttons drawn over it.
 
+Everything on that canvas is a rectangle, a circle, a stroked circle or a line.
+`drawPoly` is **not** used and should not be reached for: the watch accepts a
+polygon without complaint and then draws nothing at all. That is how the four
+movement arrows once shipped invisible while every line-drawn icon beside them
+came out fine, and no test caught it, because the doubles happily record a
+polygon nobody ever sees.
+
 The screen is tested too, not just the rules. The `@zos/*` modules only exist
 inside a Zepp OS build, so `vitest.config.mjs` resolves them to doubles that
 record what the page drew and let a test press, drag and lift a finger on it. The
