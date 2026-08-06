@@ -149,6 +149,18 @@ describe("running the script", () => {
     expect(run.version).toEqual({ name: "0.4.0", code: 300 });
   });
 
+  // Nothing to do still has to mean success. This is the state the script's own
+  // advice leaves behind - run `npm run version:sync`, commit the result - and
+  // the script returns on it before either branch the two tests above reach, so
+  // nothing else says what it exits with. Getting it wrong fails the gate on
+  // every pull request and stops the build before `zeus build` is ever called.
+  it("passes the check when both numbers are already right", () => {
+    const run = runScript({ released: "0.4.0", name: "0.4.0", code: 400 }, "--check");
+    expect(run.status).toBe(0);
+    expect(run.output).toContain("already");
+    expect(run.version).toEqual({ name: "0.4.0", code: 400 });
+  });
+
   it("writes both numbers when it is not just checking", () => {
     const run = runScript({ released: "0.4.0", name: "0.3.0", code: 300 });
     expect(run.status).toBe(0);
