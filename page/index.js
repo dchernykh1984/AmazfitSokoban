@@ -1005,8 +1005,8 @@ Page({
       const arrow = ARROWS[i];
       this.runCommands(paintArrow(arrow.direction, layout[arrow.key], COLOR_TEXT, metrics));
     }
-    this.runCommands(paintUndoIcon(layout.undo, COLOR_TEXT));
-    this.runCommands(paintMenuIcon(layout.menu, COLOR_TEXT));
+    this.runCommands(paintUndoIcon(layout.undo, COLOR_TEXT, metrics.width));
+    this.runCommands(paintMenuIcon(layout.menu, COLOR_TEXT, metrics.width));
   },
 
   // Crates home out of the total, and how many moves that has taken. A widget
