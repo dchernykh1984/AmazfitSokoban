@@ -208,26 +208,34 @@ describe("the drawn controls", () => {
   });
 
   it("keeps every control inside its button", () => {
-    const inside = (commands) => {
+    // A stroke is centred on its endpoints, so half of its width hangs outside
+    // them: an icon whose endpoints only just reach the edge still spills over
+    // it. The shapes the real layout hands out are far from square - a wide
+    // shallow strip for the up arrow, tall narrow ones for the sides - and those
+    // are exactly the shapes that push a control out of its button.
+    const buttons = [BUTTON, { x: 10, y: 20, w: 162, h: 34 }, { x: 10, y: 20, w: 51, h: 110 }];
+
+    const inside = (commands, button) => {
       for (const command of commands) {
-        const xs = [command.x1, command.x2];
-        const ys = [command.y1, command.y2];
-        for (const x of xs) {
-          expect(x).toBeGreaterThanOrEqual(BUTTON.x);
-          expect(x).toBeLessThanOrEqual(BUTTON.x + BUTTON.w);
+        const spill = (command.width || 2) / 2;
+        for (const x of [command.x1, command.x2]) {
+          expect(x - spill).toBeGreaterThanOrEqual(button.x);
+          expect(x + spill).toBeLessThanOrEqual(button.x + button.w);
         }
-        for (const y of ys) {
-          expect(y).toBeGreaterThanOrEqual(BUTTON.y);
-          expect(y).toBeLessThanOrEqual(BUTTON.y + BUTTON.h);
+        for (const y of [command.y1, command.y2]) {
+          expect(y - spill).toBeGreaterThanOrEqual(button.y);
+          expect(y + spill).toBeLessThanOrEqual(button.y + button.h);
         }
       }
     };
 
-    for (const direction of [UP, RIGHT, DOWN, LEFT]) {
-      inside(paintArrow(direction, BUTTON, WHITE));
+    for (const button of buttons) {
+      for (const direction of [UP, RIGHT, DOWN, LEFT]) {
+        inside(paintArrow(direction, button, WHITE), button);
+      }
     }
-    inside(paintUndoIcon(BUTTON, WHITE));
-    inside(paintMenuIcon(BUTTON, WHITE));
+    inside(paintUndoIcon(BUTTON, WHITE), BUTTON);
+    inside(paintMenuIcon(BUTTON, WHITE), BUTTON);
   });
 
   it("draws undo as an arrow bending back", () => {
