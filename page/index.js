@@ -480,6 +480,13 @@ Page({
     }
   },
 
+  // One cell, drawn whole and with no mask over it afterwards.
+  //
+  // That is only safe because the camera has already been asked to follow the
+  // keeper: FOLLOW_MARGIN keeps it at least a cell clear of the edge columns, so
+  // a cell repainted here is always entirely inside the window. Drop the margin
+  // to nothing and this path starts painting half-cells over the arrows again -
+  // the very spill paintWindowEdge exists to clean up.
   paintOneCell(column, row) {
     const camera = this.state.camera;
     const box = cellBox(camera, this.state.board, column, row);
