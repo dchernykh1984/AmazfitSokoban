@@ -79,6 +79,7 @@ import {
   BUTTON_HEIGHT_FRACTION,
   COLOR_ACCENT,
   COLOR_BACKGROUND,
+  BOARD_EDGE,
   COLOR_BOARD_EDGE,
   COLOR_BUTTON,
   COLOR_BUTTON_PRESSED,
@@ -109,7 +110,6 @@ const STACK_GAP = Math.round(SCREEN_SIZE * STACK_GAP_FRACTION);
 const MENU_WIDTH = Math.round(SCREEN_SIZE * MENU_WIDTH_FRACTION);
 const TAP_SLOP = Math.round(SCREEN_SIZE * TAP_SLOP_FRACTION);
 
-const BOARD_EDGE_WIDTH = 3;
 const PROGRESS_HEIGHT = Math.round(SCREEN_SIZE * 0.09);
 
 // The packed collection, built from maps/*.sok by scripts/pack-maps.mjs.
@@ -974,7 +974,7 @@ Page({
     const board = this.state.board;
     const right = board.x + board.size;
     const bottom = board.y + board.size;
-    const edge = BOARD_EDGE_WIDTH;
+    const edge = BOARD_EDGE;
 
     this.runCommands([
       { op: "rect", x1: 0, y1: 0, x2: SCREEN_SIZE, y2: board.y, color: COLOR_EMPTY },
