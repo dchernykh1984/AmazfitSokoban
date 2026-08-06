@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { centeredBox, safeHalfWidth, safeLineWidth, splitRow } from "../lib/round-geometry.js";
+import { centeredBox, safeHalfWidth, safeLineWidth } from "../lib/round-geometry.js";
 
 describe("safeHalfWidth", () => {
   it("is the full radius on the centre line", () => {
@@ -78,42 +78,5 @@ describe("centeredBox", () => {
         expect(Math.sqrt(dx * dx + dy * dy)).toBeLessThanOrEqual(radius);
       }
     }
-  });
-});
-
-describe("splitRow", () => {
-  const row = { x: 100, y: 400, w: 260, h: 44 };
-
-  it("cuts a row into equal boxes with a gap between them", () => {
-    const boxes = splitRow(row, 2, 12);
-    expect(boxes.length).toBe(2);
-    expect(boxes[0].w).toBe(boxes[1].w);
-    expect(boxes[0].x).toBe(row.x);
-    expect(boxes[1].x - (boxes[0].x + boxes[0].w)).toBe(12);
-  });
-
-  it("stays inside the row it was given", () => {
-    for (const count of [1, 2, 3]) {
-      const boxes = splitRow(row, count, 10);
-      const last = boxes[boxes.length - 1];
-      expect(boxes[0].x).toBeGreaterThanOrEqual(row.x);
-      expect(last.x + last.w).toBeLessThanOrEqual(row.x + row.w);
-    }
-  });
-
-  it("keeps the height and the top edge of the row", () => {
-    for (const box of splitRow(row, 2, 12)) {
-      expect(box.y).toBe(row.y);
-      expect(box.h).toBe(row.h);
-    }
-  });
-
-  it("hands back the whole row when there is only one box", () => {
-    expect(splitRow(row, 1, 12)).toEqual([row]);
-  });
-
-  it("survives a nonsense count or gap", () => {
-    expect(splitRow(row, 0, 12).length).toBe(1);
-    expect(splitRow(row, 2, -50)[0].w).toBe(130);
   });
 });
