@@ -191,6 +191,50 @@ describe("the drawn controls", () => {
     }
   });
 
+  // Pointing the right way is not enough to be an arrow. A single stroke drawn
+  // twice, two arms on the same side of the tip, one arm a third the length of
+  // the other, a chevron nudged off the button's axis - all of them point the
+  // right way and none of them look like an arrow, so the shape itself is what
+  // gets checked here.
+  it("draws a real chevron, not any old pair of strokes", () => {
+    const arms = (direction) => {
+      const [first, second] = paintArrow(direction, BUTTON, WHITE);
+      const tip = { x: first.x2, y: first.y2 };
+      return { tip, a: { x: first.x1, y: first.y1 }, b: { x: second.x2, y: second.y2 } };
+    };
+    const centre = { x: BUTTON.x + BUTTON.w / 2, y: BUTTON.y + BUTTON.h / 2 };
+
+    for (const [direction, along, across] of [
+      [UP, "y", "x"],
+      [DOWN, "y", "x"],
+      [LEFT, "x", "y"],
+      [RIGHT, "x", "y"],
+    ]) {
+      const { tip, a, b } = arms(direction);
+      const name = "arrow " + direction;
+
+      // The arms straddle the tip: one each side, not both on one side.
+      expect(Math.sign(a[across] - tip[across]), name + " arms on one side").toBe(
+        -Math.sign(b[across] - tip[across])
+      );
+      expect(a[across], name + " has no width").not.toBe(tip[across]);
+
+      // Both arms trail the tip by the same amount, so the arrow is symmetric.
+      expect(a[along], name + " arms uneven").toBe(b[along]);
+      expect(Math.abs(a[across] - tip[across]), name + " lopsided").toBe(
+        Math.abs(b[across] - tip[across])
+      );
+
+      // And it is centred on the button across its pointing axis.
+      expect(Math.abs(tip[across] - centre[across]), name + " off centre").toBeLessThanOrEqual(1);
+
+      // Big enough to see: the arms reach a real fraction of the button.
+      const span = Math.abs(a[across] - b[across]);
+      expect(span, name + " too small").toBeGreaterThanOrEqual(Math.min(BUTTON.w, BUTTON.h) * 0.35);
+      expect(Math.abs(a[along] - tip[along]), name + " flat").toBeGreaterThanOrEqual(span * 0.4);
+    }
+  });
+
   it("points each arrow the way it is named", () => {
     // The two strokes meet at the tip, which is the point they share.
     const tip = (direction) => {
@@ -236,6 +280,21 @@ describe("the drawn controls", () => {
     }
     inside(paintUndoIcon(BUTTON, WHITE), BUTTON);
     inside(paintMenuIcon(BUTTON, WHITE), BUTTON);
+  });
+
+  it("gives undo and the menu the weight the arrows are drawn at", () => {
+    for (const commands of [paintUndoIcon(BUTTON, WHITE, 5), paintMenuIcon(BUTTON, WHITE, 5)]) {
+      for (const command of commands) {
+        expect(command.width).toBe(5);
+      }
+    }
+    // The menu bars have to stay apart once they are thick.
+    const bars = paintMenuIcon(BUTTON, WHITE, 7)
+      .map((command) => command.y1)
+      .sort((a, b) => a - b);
+    for (let i = 1; i < bars.length; i++) {
+      expect(bars[i] - bars[i - 1]).toBeGreaterThan(7);
+    }
   });
 
   it("draws undo as an arrow bending back", () => {
