@@ -1,11 +1,39 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { syncedAppJson, versionCode } from "../scripts/sync-app-version.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const SCRIPT = join("scripts", "sync-app-version.mjs");
 const read = (file) => JSON.parse(readFileSync(join(ROOT, file), "utf8"));
+
+// Run the script the way npm and CI run it - as a process, for its exit code -
+// against a throwaway checkout holding nothing but the two files it reads. The
+// exported helpers above are the arithmetic; this is the contract the required
+// `version:check` gate is built on, and it is not visible from an import.
+function runScript({ released, name, code }, ...args) {
+  const dir = mkdtempSync(join(tmpdir(), "app-version-"));
+  try {
+    mkdirSync(join(dir, "scripts"));
+    copyFileSync(join(ROOT, SCRIPT), join(dir, SCRIPT));
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ version: released }, null, 2) + "\n");
+    const app = read("app.json");
+    app.app.version = { code, name };
+    writeFileSync(join(dir, "app.json"), JSON.stringify(app, null, 2) + "\n");
+
+    const run = spawnSync(process.execPath, [join(dir, SCRIPT), ...args], { encoding: "utf8" });
+    return {
+      status: run.status,
+      output: run.stdout + run.stderr,
+      version: JSON.parse(readFileSync(join(dir, "app.json"), "utf8")).app.version,
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 describe("versionCode", () => {
   it("packs a semver into one integer", () => {
@@ -86,6 +114,41 @@ describe("writing the version into app.json", () => {
   it("is idempotent", () => {
     const once = syncedAppJson(APP, "1.2.3");
     expect(syncedAppJson(once, "1.2.3")).toBe(once);
+  });
+});
+
+describe("running the script", () => {
+  // The one case the pull-request gate exists for: someone bumped package.json,
+  // or edited app.json, and the two drifted apart. A guard that says yes here is
+  // worth nothing, and nothing else in this file would notice.
+  it("fails the check when app.json is behind the release", () => {
+    const run = runScript({ released: "0.4.0", name: "0.3.0", code: 300 }, "--check");
+    expect(run.status).toBe(1);
+    expect(run.output).toContain("0.3.0");
+    expect(run.output).toContain("0.4.0");
+    expect(run.version).toEqual({ name: "0.3.0", code: 300 });
+  });
+
+  // The state of every release PR: release-please has written the name, and the
+  // code is still the previous release's until the build recomputes it. Failing
+  // here would block every release.
+  it("passes the check when only the code is behind", () => {
+    const run = runScript({ released: "0.4.0", name: "0.4.0", code: 300 }, "--check");
+    expect(run.status).toBe(0);
+    expect(run.version).toEqual({ name: "0.4.0", code: 300 });
+  });
+
+  it("writes both numbers when it is not just checking", () => {
+    const run = runScript({ released: "0.4.0", name: "0.3.0", code: 300 });
+    expect(run.status).toBe(0);
+    expect(run.version).toEqual({ name: "0.4.0", code: 400 });
+  });
+
+  it("refuses a release version it cannot pack into a code", () => {
+    const run = runScript({ released: "0.100.0", name: "0.99.0", code: 9900 });
+    expect(run.status).not.toBe(0);
+    expect(run.output).toContain("under 100");
+    expect(run.version).toEqual({ name: "0.99.0", code: 9900 });
   });
 });
 
