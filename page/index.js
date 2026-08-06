@@ -877,8 +877,9 @@ Page({
 
   // ---------------------------------------------------------------- drawing ----
 
-  // Run the primitives a lib/paint function produced. The page knows these five
-  // shapes and nothing else about how the game looks.
+  // Run the primitives a lib/paint function produced. The page knows these four
+  // shapes and nothing else about how the game looks. There is deliberately no
+  // polygon among them: the watch takes one and draws nothing.
   runCommands(commands) {
     const canvas = this.state.canvas;
     if (!canvas) {
