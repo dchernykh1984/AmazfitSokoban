@@ -11,6 +11,7 @@ import {
 } from "../lib/controls.js";
 import { DOWN, LEFT, RIGHT, UP } from "../lib/directions.js";
 import { LEVELS } from "../lib/levels.js";
+import { BOARD_EDGE } from "../utils/config/constants.js";
 
 const SCREENS = [466, 480];
 
@@ -86,6 +87,19 @@ describe("controlLayout", () => {
   // screens. Nothing else pins this: the row could be squashed to a quarter of
   // its height and every other test would still pass, which is exactly the
   // regression the layout was reworked to fix.
+  // The frame around the window is drawn outside it, so the row has to clear
+  // both the board and the frame - otherwise the down arrow sits under it.
+  it("keeps the bottom row clear of the frame around the window", () => {
+    for (const screen of SCREENS) {
+      for (const spec of LEVELS) {
+        const { board, layout } = layoutFor(screen, spec.visible);
+        expect(layout.down.y, screen + " " + spec.id).toBeGreaterThan(
+          board.y + board.size + BOARD_EDGE
+        );
+      }
+    }
+  });
+
   it("gives every control a target a finger can hit", () => {
     for (const screen of SCREENS) {
       for (const spec of LEVELS) {
