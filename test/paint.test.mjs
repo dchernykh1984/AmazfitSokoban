@@ -290,12 +290,20 @@ describe("the drawn controls", () => {
         expect(command.width).toBe(5);
       }
     }
-    // The menu bars have to stay apart once they are thick.
-    const bars = paintMenuIcon(BUTTON, WHITE, 7)
-      .map((command) => command.y1)
-      .sort((a, b) => a - b);
-    for (let i = 1; i < bars.length; i++) {
-      expect(bars[i] - bars[i - 1]).toBeGreaterThan(7);
+    // The bars have to stay apart once they are drawn thick, and the button the
+    // game actually hands them is the one that proves it: at 46x40 with a 5px
+    // stroke, spacing worked out from the button alone comes to 6 - bars a pixel
+    // apart, which is a smear rather than a menu icon.
+    for (const [box, width] of [
+      [{ x: 292, y: 397, w: 46, h: 40 }, 5],
+      [BUTTON, 7],
+    ]) {
+      const bars = paintMenuIcon(box, WHITE, width)
+        .map((command) => command.y1)
+        .sort((a, b) => a - b);
+      for (let i = 1; i < bars.length; i++) {
+        expect(bars[i] - bars[i - 1], "bars at width " + width).toBeGreaterThanOrEqual(width + 2);
+      }
     }
   });
 
