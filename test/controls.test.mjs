@@ -54,6 +54,34 @@ describe("controlLayout", () => {
     expect(layout.down.x + layout.down.w).toBeLessThanOrEqual(layout.menu.x);
   });
 
+  // Steering is what the bottom row is for. Undo and the menu share it because
+  // there is nowhere else to put them, and both are costly to hit by accident
+  // mid-solve, so a thumb that lands wide of the arrow has to fall in dead space
+  // instead of on a neighbour.
+  it("keeps a dead gap between the down arrow and the buttons beside it", () => {
+    for (const screen of SCREENS) {
+      for (const spec of LEVELS) {
+        const { layout } = layoutFor(screen, spec.visible);
+        const where = screen + " " + spec.id;
+
+        const before = layout.down.x - (layout.undo.x + layout.undo.w);
+        const after = layout.menu.x - (layout.down.x + layout.down.w);
+        expect(before, where + " undo").toBeGreaterThanOrEqual(20);
+        expect(after, where + " menu").toBeGreaterThanOrEqual(20);
+
+        // A tap just outside the arrow does nothing rather than undoing a move.
+        const midY = layout.down.y + Math.floor(layout.down.h / 2);
+        expect(hitTest(layout, layout.down.x - 3, midY), where).toBeNull();
+        expect(hitTest(layout, layout.down.x + layout.down.w + 3, midY), where).toBeNull();
+
+        // And the arrow is the biggest of the three, because it is the one that
+        // gets pressed hundreds of times a game.
+        expect(layout.down.w, where).toBeGreaterThan(layout.undo.w);
+        expect(layout.down.w, where).toBeGreaterThan(layout.menu.w);
+      }
+    }
+  });
+
   it("gives every control something to hit", () => {
     for (const screen of SCREENS) {
       for (const spec of LEVELS) {
