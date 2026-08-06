@@ -254,9 +254,10 @@ describe("the drawn controls", () => {
   it("keeps every control inside its button", () => {
     // A stroke is centred on its endpoints, so half of its width hangs outside
     // them: an icon whose endpoints only just reach the edge still spills over
-    // it. The shapes the real layout hands out are far from square - a wide
-    // shallow strip for the up arrow, tall narrow ones for the sides - and those
-    // are exactly the shapes that push a control out of its button.
+    // it, which is what the spill term below accounts for. The extra buttons are
+    // the shapes the real layout hands out - a wide shallow strip along the top,
+    // a tall narrow one down each side - so the check is made against the boxes
+    // the game actually draws into rather than a tidy square that flatters it.
     const buttons = [BUTTON, { x: 10, y: 20, w: 162, h: 34 }, { x: 10, y: 20, w: 51, h: 110 }];
 
     const inside = (commands, button) => {
