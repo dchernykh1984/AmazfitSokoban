@@ -33,7 +33,12 @@ logs/
 *.iml
 
 # ===== AI agents =====
-.claude/
+# .claude/ itself is tracked: it carries the project's agent context - CLAUDE.md,
+# skills, shared settings - so a fresh session knows how to work here. Only the
+# per-machine file stays out, because it accumulates absolute paths and one-off
+# command approvals that mean nothing on anyone else's computer.
+.claude/settings.local.json
+.claude/*.local.json
 .cursor/
 .windsurf/
 .gemini/
