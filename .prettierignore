@@ -9,3 +9,6 @@ CHANGELOG.md
 # line. Formatting it here would fail the release PR's own checks over a file
 # nobody hand-formats anyway.
 app.json
+# Per-machine Claude Code approvals: git-ignored, written by the tool, and full
+# of absolute paths nobody should be reformatting.
+.claude/settings.local.json
