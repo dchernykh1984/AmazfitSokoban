@@ -21,12 +21,20 @@ worth doing, mention it and let the decision be made.
 **Never run remote git operations on your own** - no push, no merge, no branch
 deletion, no force-push - unless you were asked for that specific action.
 
+**Work on a branch cut from current `origin/main`** - `git fetch origin && git
+switch -c <type>/<slug> origin/main` - never on `main` itself, and stage only the
+files you touched (`git add <path>`), never `git add -A`. The tree can carry edits
+that are not yours.
+
 Answer in the language the request was written in.
 
 ## Commits
 
 Conventional Commits, one-line subject, imperative mood, no body unless it earns
 its place. The commitizen hook enforces the format in CI.
+
+No attribution, ever: no `Co-Authored-By` trailer on a commit and no "generated
+with" footer in a pull request description. Strip one if a default adds it.
 
 One commit per finding when working through review comments: it makes the
 history readable and lets a single fix be reverted on its own.
@@ -50,6 +58,19 @@ SKIP=check-added-large-files,commitizen,end-of-file-fixer git push
 ```
 
 Never use `--no-verify`: it disables every hook, including the ones that work.
+
+On that same Windows machine, write files as UTF-8. A PowerShell redirect,
+`Set-Content` or `Out-File` defaults to UTF-16, which fails the ASCII guard and
+Prettier on a file that looks perfectly fine in an editor; `file <path>` says which
+encoding you actually wrote.
+
+Read the CI verdict from the rollup rather than `gh pr checks`, whose per-check
+status lags and can still say `pending` long after a job has finished:
+
+```bash
+gh pr view <n> --json statusCheckRollup \
+  --jq '[.statusCheckRollup[] | {name:(.name//.context), s:(.conclusion//.state)}]'
+```
 
 ## House style
 
