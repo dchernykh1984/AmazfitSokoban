@@ -1,0 +1,32 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/post_edit.py\"",
+            "commandWindows": "py -3 \"$(git rev-parse --show-toplevel)/.codex/hooks/post_edit.py\"",
+            "timeout": 15,
+            "statusMessage": "Checking edited files"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/shell_hook.py\" guard",
+            "commandWindows": "py -3 \"$(git rev-parse --show-toplevel)/.codex/hooks/shell_hook.py\" guard",
+            "timeout": 10,
+            "statusMessage": "Checking git safety flags"
+          }
+        ]
+      }
+    ]
+  }
+}
